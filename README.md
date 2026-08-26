@@ -69,14 +69,15 @@ reviewer does not have to find them.
 | **`PUT /api/settings` replaces both settings whole rather than patching them.**                                              | Unchecking a category _is_ leaving it out of the list; there is no partial update that can express it.                                                                                                                                                                             |
 ## Notes
 
-### What I would do next
+### What would I do next?
 
 - Complete the features listed in the **stretch section**.
+- Current productivity tracking is based only on billable hours, overlooking valuable non-billable work such as internal tooling, mentoring, process improvements, and client relationship management. A future metric should account for these contributions.
 - Polish and refine the UI for a more consistent and polished user experience.
 - Integrate **Codex** into the CI/CD pipeline as the final stage for automated code review.
 
 ### What would I cut and why?
-I can't think of anything specific I'd cut right now. Every feature I worked on looked important.
+- I wouldn't cut anything, since every feature seems important. However, I'd improve productivity tracking to account for non-billable hours.
 
 ### What I'm not happy about?
 - Missing Codex review; I would integrate it into the CI/CD pipeline as the final stage for automated code review.
