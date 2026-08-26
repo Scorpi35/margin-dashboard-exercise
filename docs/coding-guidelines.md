@@ -33,19 +33,19 @@ This file guides Claude Code (and any contributor) when generating or modifying 
 
 ## Naming Conventions
 
-| Item                                           | Convention              | Example                                                                    |
-| ---------------------------------------------- | ----------------------- | -------------------------------------------------------------------------- |
-| Variables, functions                           | camelCase               | `computeIndirectRate`                                                      |
-| React components                               | PascalCase              | `ProjectMarginTable`                                                       |
-| Types, interfaces                              | PascalCase              | `TimesheetRow`, `ProjectFinancials`                                        |
-| Constants (true constants)                     | UPPER_SNAKE_CASE        | `DEFAULT_BILLABLE_CATEGORIES`                                              |
-| Files: components                              | PascalCase.tsx          | `StatCard.tsx`                                                             |
-| Files: hooks                                   | camelCase, `use` prefix | `usePeriodFilter.ts`                                                       |
-| Files: backend layer modules                   | kebab-case + dot suffix | `project.controller.ts`, `ingest.service.ts`, `upload.routes.ts`           |
-| Files: everything else (utils, helpers)        | kebab-case              | `format-currency.ts`                                                       |
-| Folders                                        | kebab-case              | `sample-data/`, `project-detail/`                                          |
-| Database columns                               | snake_case              | `employee_no`, `monthly_salary`                                            |
-| Interfaces                                     | No `I` prefix           | `SalaryRow`, not `ISalaryRow`                                              |
+| Item                                    | Convention              | Example                                                          |
+| --------------------------------------- | ----------------------- | ---------------------------------------------------------------- |
+| Variables, functions                    | camelCase               | `computeIndirectRate`                                            |
+| React components                        | PascalCase              | `ProjectMarginTable`                                             |
+| Types, interfaces                       | PascalCase              | `TimesheetRow`, `ProjectFinancials`                              |
+| Constants (true constants)              | UPPER_SNAKE_CASE        | `DEFAULT_BILLABLE_CATEGORIES`                                    |
+| Files: components                       | PascalCase.tsx          | `StatCard.tsx`                                                   |
+| Files: hooks                            | camelCase, `use` prefix | `usePeriodFilter.ts`                                             |
+| Files: backend layer modules            | kebab-case + dot suffix | `project.controller.ts`, `ingest.service.ts`, `upload.routes.ts` |
+| Files: everything else (utils, helpers) | kebab-case              | `format-currency.ts`                                             |
+| Folders                                 | kebab-case              | `sample-data/`, `project-detail/`                                |
+| Database columns                        | snake_case              | `employee_no`, `monthly_salary`                                  |
+| Interfaces                              | No `I` prefix           | `SalaryRow`, not `ISalaryRow`                                    |
 
 Domain language beats implementation language. `directRate`, `indirectPool`,
 `billableHours`, `revenueShare` — someone in finance should recognise the variable

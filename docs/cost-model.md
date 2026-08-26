@@ -67,11 +67,11 @@ each individual month as well as the annual total.
 
 Every dirham of salary lands in exactly one bucket:
 
-| Bucket | Where it goes |
-|---|---|
-| Billable hours of a person who logged hours | Carried by their direct rate, charged to a project |
-| Non-billable hours of that same person | Valued at their direct rate, pushed into the indirect pool |
-| Whole salary of a person who logged nothing | Pushed into the indirect pool |
+| Bucket                                      | Where it goes                                              |
+| ------------------------------------------- | ---------------------------------------------------------- |
+| Billable hours of a person who logged hours | Carried by their direct rate, charged to a project         |
+| Non-billable hours of that same person      | Valued at their direct rate, pushed into the indirect pool |
+| Whole salary of a person who logged nothing | Pushed into the indirect pool                              |
 
 The pool is then redistributed across billable hours as the indirect rate.
 Nothing is counted twice and nothing is dropped, so the three buckets sum back to
@@ -102,14 +102,14 @@ Real figures from `sample-data/`, reproducible with `npm run selfcheck`.
 
 **Inputs for the month**
 
-| Quantity | Value |
-|---|---|
-| Total salaries | AED 197,000.00 |
-| Total hours logged | 1,634.6 |
-| Billable hours | 1,283.5 |
-| Non-billable hours | 351.1 |
-| People who logged no hours | none |
-| Overhead | 0 |
+| Quantity                   | Value          |
+| -------------------------- | -------------- |
+| Total salaries             | AED 197,000.00 |
+| Total hours logged         | 1,634.6        |
+| Billable hours             | 1,283.5        |
+| Non-billable hours         | 351.1          |
+| People who logged no hours | none           |
+| Overhead                   | 0              |
 
 **One person's direct rate — Ayesha Rahman**
 
@@ -155,19 +155,19 @@ Running the full year over the sample data produces a result worth knowing about
 before building the UI: **three of the eleven projects lose money**, and all three
 are the small non-project engagements.
 
-| Ref code | Category | Price | Hours | Cost | Margin |
-|---|---|---|---|---|---|
-| E2025050a | Enhancements | 92,000 | 1,225.2 | 195,062 | −112.0% |
-| H2025060c | Hosting | 46,000 | 644.2 | 96,080 | −108.9% |
-| E2025055b | Enhancements | 104,000 | 855.3 | 129,854 | −24.9% |
-| Q2025021e | Projects | 250,000 | 1,325.5 | 218,659 | +12.5% |
-| Q2025009b | Projects | 330,000 | 1,842.6 | 283,113 | +14.2% |
-| Q2025001a | Projects | 560,000 | 3,025.2 | 468,776 | +16.3% |
-| Q2025033g | Projects | 300,000 | 1,148.3 | 177,242 | +40.9% |
-| Q2025004c | Projects | 900,000 | 1,808.7 | 294,322 | +67.3% |
-| Q2025014d | Projects | 690,000 | 1,304.3 | 203,009 | +70.6% |
-| Q2025041h | Projects | 760,000 | 1,096.8 | 176,503 | +76.8% |
-| Q2025027f | Projects | 980,000 | 989.5 | 157,380 | +83.9% |
+| Ref code  | Category     | Price   | Hours   | Cost    | Margin  |
+| --------- | ------------ | ------- | ------- | ------- | ------- |
+| E2025050a | Enhancements | 92,000  | 1,225.2 | 195,062 | −112.0% |
+| H2025060c | Hosting      | 46,000  | 644.2   | 96,080  | −108.9% |
+| E2025055b | Enhancements | 104,000 | 855.3   | 129,854 | −24.9%  |
+| Q2025021e | Projects     | 250,000 | 1,325.5 | 218,659 | +12.5%  |
+| Q2025009b | Projects     | 330,000 | 1,842.6 | 283,113 | +14.2%  |
+| Q2025001a | Projects     | 560,000 | 3,025.2 | 468,776 | +16.3%  |
+| Q2025033g | Projects     | 300,000 | 1,148.3 | 177,242 | +40.9%  |
+| Q2025004c | Projects     | 900,000 | 1,808.7 | 294,322 | +67.3%  |
+| Q2025014d | Projects     | 690,000 | 1,304.3 | 203,009 | +70.6%  |
+| Q2025041h | Projects     | 760,000 | 1,096.8 | 176,503 | +76.8%  |
+| Q2025027f | Projects     | 980,000 | 989.5   | 157,380 | +83.9%  |
 
 This is the answer the tool exists to give, so the Projects page sorts
 loss-making work first by default. A dashboard that buries these three below
@@ -177,14 +177,14 @@ eight profitable rows has failed at its job.
 
 ## Edge Cases
 
-| Situation | Behaviour |
-|---|---|
-| Person logs hours but has no salary row | `salary` is `null`, direct rate is `0`, and the person is surfaced in `missingSalaryEmployees`. Never costed at zero silently. |
-| Person has a salary but logged zero hours | Flagged `isSupportStaff`; their whole salary enters that month's indirect pool. |
-| Ref code has hours but no price row | `projectPrice`, `profit`, `marginPct` and every `revenueShare` are `null`, and the ref code is surfaced in `unpricedRefCodes`. |
-| Month has zero billable hours | Indirect rate is `0` rather than `Infinity`. The pool still counts toward total cost. |
-| Person logs zero total hours in a month | Direct rate is `0` rather than `NaN`. |
-| Project price is zero | Margin is `null`, not a division by zero. |
+| Situation                                 | Behaviour                                                                                                                      |
+| ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------ |
+| Person logs hours but has no salary row   | `salary` is `null`, direct rate is `0`, and the person is surfaced in `missingSalaryEmployees`. Never costed at zero silently. |
+| Person has a salary but logged zero hours | Flagged `isSupportStaff`; their whole salary enters that month's indirect pool.                                                |
+| Ref code has hours but no price row       | `projectPrice`, `profit`, `marginPct` and every `revenueShare` are `null`, and the ref code is surfaced in `unpricedRefCodes`. |
+| Month has zero billable hours             | Indirect rate is `0` rather than `Infinity`. The pool still counts toward total cost.                                          |
+| Person logs zero total hours in a month   | Direct rate is `0` rather than `NaN`.                                                                                          |
+| Project price is zero                     | Margin is `null`, not a division by zero.                                                                                      |
 
 Every division in the engine is guarded. No path may produce `NaN` or `Infinity`.
 

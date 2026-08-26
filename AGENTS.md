@@ -14,14 +14,14 @@ change that breaks it is wrong — never adjust the assertion to make it pass.
 
 Read the relevant documentation before implementing features.
 
-| Document                  | Purpose                                        |
-| ------------------------- | ---------------------------------------------- |
-| docs/architecture.md      | Overall system architecture                    |
-| docs/cost-model.md        | Cost formulas and the reconciliation invariant |
+| Document                  | Purpose                                           |
+| ------------------------- | ------------------------------------------------- |
+| docs/architecture.md      | Overall system architecture                       |
+| docs/cost-model.md        | Cost formulas and the reconciliation invariant    |
 | docs/data-sources.md      | Shape and quirks of the three source spreadsheets |
-| docs/coding-guidelines.md | Coding guidelines                              |
-| docs/engineering-logs.md  | Engineering logs                               |
-| docs/roadmap.md           | Product roadmap                                |
+| docs/coding-guidelines.md | Coding guidelines                                 |
+| docs/engineering-logs.md  | Engineering logs                                  |
+| docs/roadmap.md           | Product roadmap                                   |
 
 `docs/review.md` holds the code review procedure and rules. Read it when asked
 to review changes — not as part of ordinary feature work.
