@@ -1,13 +1,14 @@
 import type { EmployeeProjectContribution } from '@shared/types';
 
-import { formatAED, formatHours } from '@/lib/format';
+import { formatAED, formatHours, formatPct } from '@/lib/format';
 
 /**
- * Who worked on a project and what their time cost.
+ * Who worked on a project, what their time cost, and whether their share of the
+ * work paid for itself.
  *
- * Hours and cost only. The engine also computes each person's revenue share and
- * profitability; surfacing those is deliberately left to its own issue rather
- * than half-done here.
+ * Profitability is `(revenue share − cost) ÷ revenue share`, computed by the
+ * engine. An unpriced project has no revenue to share out, so the column reads
+ * as an em dash for every row — a gap, not a break-even.
  */
 
 interface ContributorsTableProps {
@@ -36,6 +37,9 @@ export default function ContributorsTable({ employees }: ContributorsTableProps)
             <th scope="col" className="px-4 py-2 text-right font-medium">
               Cost
             </th>
+            <th scope="col" className="px-4 py-2 text-right font-medium">
+              Profitability
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -49,10 +53,20 @@ export default function ContributorsTable({ employees }: ContributorsTableProps)
                 {formatHours(employee.hours)}
               </td>
               <td className="tabular text-ink px-4 py-2 text-right">{formatAED(employee.cost)}</td>
+              <td className={`tabular px-4 py-2 text-right ${amountClass(employee.profitability)}`}>
+                {formatPct(employee.profitability)}
+              </td>
             </tr>
           ))}
         </tbody>
       </table>
     </div>
   );
+}
+
+/** An absent figure is neither good nor bad, so it stays neutral. */
+function amountClass(value: number | null): string {
+  if (value === null) return 'text-ink-muted';
+
+  return value < 0 ? 'text-negative font-medium' : 'text-positive';
 }

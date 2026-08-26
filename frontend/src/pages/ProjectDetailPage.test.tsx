@@ -123,7 +123,7 @@ describe('the project detail', () => {
     expect(within(table).getByText('1,200.2')).toBeDefined();
   });
 
-  it('leaves per-employee profitability out, as that is its own issue', async () => {
+  it('gives every contributor a profitability percentage', async () => {
     renderAt('/projects/Q2025001a');
 
     const table = (await screen.findByText('By person')).closest('table')!;
@@ -131,7 +131,23 @@ describe('the project detail', () => {
       .getAllByRole('columnheader')
       .map((header) => header.textContent);
 
-    expect(headers).toEqual(['Employee', 'Hours', 'Cost']);
+    expect(headers).toEqual(['Employee', 'Hours', 'Cost', 'Profitability']);
+    expect(within(table).getByText('19.0%')).toBeDefined();
+    expect(within(table).getByText('14.5%')).toBeDefined();
+  });
+
+  it('colours profitability by sign, so time that lost money reads as a loss', async () => {
+    const [profitable, losing] = financials().employees;
+    project.mockResolvedValue(
+      financials({ employees: [profitable, { ...losing, profitability: -0.312 }] }),
+    );
+
+    renderAt('/projects/Q2025001a');
+
+    const table = (await screen.findByText('By person')).closest('table')!;
+
+    expect(within(table).getByText('19.0%').className).toMatch(/text-positive/);
+    expect(within(table).getByText('-31.2%').className).toMatch(/text-negative/);
   });
 
   it('returns to the list with the filter intact', async () => {
@@ -151,6 +167,11 @@ describe('a project with no price', () => {
         revenue: null,
         profit: null,
         marginPct: null,
+        employees: financials().employees.map((employee) => ({
+          ...employee,
+          revenueShare: null,
+          profitability: null,
+        })),
       }),
     );
 
@@ -159,6 +180,33 @@ describe('a project with no price', () => {
     expect(await screen.findByText(/no price recorded/i)).toBeDefined();
     expect(screen.getAllByText('—').length).toBeGreaterThanOrEqual(2);
     expect(screen.queryByText('AED 0')).toBeNull();
+  });
+
+  it('leaves every contributor an em dash rather than a break-even 0%', async () => {
+    project.mockResolvedValue(
+      financials({
+        projectPrice: null,
+        revenue: null,
+        profit: null,
+        marginPct: null,
+        employees: financials().employees.map((employee) => ({
+          ...employee,
+          revenueShare: null,
+          profitability: null,
+        })),
+      }),
+    );
+
+    renderAt('/projects/Q2025999x');
+
+    const table = (await screen.findByText('By person')).closest('table')!;
+    const profitability = within(table)
+      .getAllByRole('row')
+      .slice(1)
+      .map((row) => row.children[3].textContent);
+
+    expect(profitability).toEqual(['—', '—']);
+    expect(within(table).queryByText('0.0%')).toBeNull();
   });
 });
 
