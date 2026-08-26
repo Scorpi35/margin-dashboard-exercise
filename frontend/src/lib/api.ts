@@ -1,4 +1,13 @@
-import type { ApiResponse } from '@shared/types';
+import type { ApiResponse, HealthStatus } from '@shared/types';
+
+/**
+ * The only place the app talks to the server.
+ *
+ * `apiGet` is deliberately not exported: the way out of this module is a named
+ * function per endpoint, typed against `shared/`, so a component can never
+ * assemble a URL or widen a nullable field on its way in. No `fetch` anywhere
+ * else, ever.
+ */
 
 /** Thrown for any non-2xx response, carrying the API's own message. */
 export class ApiError extends Error {
@@ -14,10 +23,7 @@ export class ApiError extends Error {
 // Relative in development: the Vite dev server proxies /api to Express.
 const API_BASE_URL = '/api';
 
-/**
- * The single entry point for server calls. Components never call `fetch`.
- */
-export async function apiGet<T>(path: string): Promise<T> {
+async function apiGet<T>(path: string): Promise<T> {
   const response = await fetch(`${API_BASE_URL}${path}`, {
     headers: { Accept: 'application/json' },
   });
@@ -35,4 +41,15 @@ export async function apiGet<T>(path: string): Promise<T> {
   }
 
   return body.data;
+}
+
+/**
+ * `GET /api/health` — whether anything has been ingested yet.
+ *
+ * No caller yet; the pages that branch on an empty database are still
+ * placeholders. Kept here because the endpoint's client belongs with the rest of
+ * them, not scattered into whichever page needs it first.
+ */
+export function getHealth(): Promise<HealthStatus> {
+  return apiGet<HealthStatus>('/health');
 }

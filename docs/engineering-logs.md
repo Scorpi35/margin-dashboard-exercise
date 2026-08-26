@@ -170,3 +170,44 @@ in the database rather than re-parsing `sample-data/`.
   construction, which is the whole point — so it was verified by temporarily
   scaling `nonBillableCost` by 0.99 and confirming the drift is reported
   (`total computed cost = 2390907.43 | FAIL`, exit 1) before reverting.
+
+## 2026-08-26 — MD-9: app shell, error handling, validation and design tokens
+
+The HTTP and visual foundation. Backend entry split into `app.ts` (wiring,
+exported for tests) and `server.ts` (listen); `controllers/validation.ts` holds
+the hand-rolled request validation; the frontend gained a React Router shell,
+a design-token palette and a typed API client.
+
+Decisions worth knowing about:
+
+- **`Number()` is not strict enough to validate a year.** It reads `"2e3"` as
+  2000 and `"0x7e9"` as 2025 — both land inside a plausible range, so a range
+  check alone lets them through and filters the dashboard to a year nobody typed.
+  `integerOrNull` requires plain digits.
+- **Validation lives in `controllers/validation.ts`, not `dashboard.controller.ts`.**
+  The guidelines pointed at the latter, but the upload controller needs
+  `requireUploadType` just as much as the dashboard needs `requireYear`. The
+  guidelines now point at the shared module.
+- **Tokens are declared in `@theme static`.** Tailwind tree-shakes theme
+  variables that no utility references, so `--color-positive`, `--color-negative`
+  and `--color-warning` were absent from the built stylesheet until a component
+  happened to use them — `var(--color-positive)` would have silently resolved to
+  nothing. `static` emits all seventeen, making the palette a real contract. The
+  palette is now tabulated in `docs/coding-guidelines.md`, which MD-9 referenced
+  as though it were already there.
+- **`apiGet` is module-private.** Only named per-endpoint functions are exported,
+  so a component cannot assemble a URL or widen a nullable field on the way in.
+- **`HealthStatus` is now `{ hasData: boolean }`**, replacing
+  `{ service, uptimeSeconds }`. The frontend needs to tell an empty database apart
+  from a period with no work in it — one wants an upload prompt, the other a
+  "nothing logged" note. Backed by an `EXISTS` query rather than
+  `readTimesheet().length`, which would deserialise 562 rows to answer a boolean.
+- **The sidebar becomes a horizontal scrolling bar below `sm` (640px)** rather
+  than collapsing behind a menu button, so every destination stays one tap away
+  at 375px.
+- **Testing Library needs an explicit `cleanup`** here: Vitest globals are off, so
+  the automatic unmount between tests does not run and every render stacks onto
+  the last. `src/test-setup.ts` wires it up.
+- New dependencies: `react-router-dom` (named in the issue),
+  `@testing-library/react`, `@testing-library/user-event` and `jsdom` — the
+  guidelines already named React Testing Library as this project's convention.

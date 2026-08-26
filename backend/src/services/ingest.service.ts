@@ -118,6 +118,26 @@ export function ingestProjects(result: ParseResult<ProjectRow>, fileName: string
 /* Reads                                                                       */
 /* -------------------------------------------------------------------------- */
 
+/**
+ * Whether anything has been ingested at all — any of the three files, not just
+ * the timesheet. A database holding only salaries has been uploaded to, and
+ * telling the user otherwise would invite them to repeat work they have done.
+ *
+ * An `EXISTS` rather than `readTimesheet().length` — the caller wants a boolean,
+ * not 562 rows deserialised to find out the answer is `true`.
+ */
+export function hasIngestedData(): boolean {
+  const row = getDb()
+    .prepare(
+      `SELECT EXISTS (SELECT 1 FROM timesheet_entries)
+            + EXISTS (SELECT 1 FROM salaries)
+            + EXISTS (SELECT 1 FROM projects) AS present`,
+    )
+    .get() as { present: number };
+
+  return row.present > 0;
+}
+
 export function readTimesheet(): TimesheetRow[] {
   const rows = getDb()
     .prepare(
@@ -255,6 +275,8 @@ function recordUpload(
   db.prepare(
     `INSERT INTO uploads (kind, file_name, uploaded_at, row_count, warning_count, months)
      VALUES (?, ?, ?, ?, ?, ?)`,
+    // Generating a timestamp, not parsing one — `parse/dates.ts` owns reading
+    // dates out of spreadsheets, and a clock is only forbidden inside `calc/`.
   ).run(kind, fileName, new Date().toISOString(), rowCount, warningCount, months.join(','));
 }
 

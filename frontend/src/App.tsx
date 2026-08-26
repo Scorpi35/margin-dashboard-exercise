@@ -1,56 +1,45 @@
-import { useEffect, useState } from 'react';
+import { Navigate, Route, Routes } from 'react-router-dom';
 
-import type { HealthStatus } from '@shared/types';
+import PagePlaceholder from '@/components/PagePlaceholder';
+import SidebarNav from '@/components/SidebarNav';
+import CategoriesPage from '@/pages/CategoriesPage';
+import DashboardPage from '@/pages/DashboardPage';
+import EmployeesPage from '@/pages/EmployeesPage';
+import ProjectsPage from '@/pages/ProjectsPage';
+import SettingsPage from '@/pages/SettingsPage';
+import UploadPage from '@/pages/UploadPage';
 
-import { apiGet, ApiError } from '@/lib/api';
-
+/**
+ * The application shell: a persistent sidebar and the six routes the dashboard is
+ * made of. Pages compose components and read their filters from the URL, so any
+ * view is reproducible from a link.
+ */
 export default function App() {
-  const [health, setHealth] = useState<HealthStatus | null>(null);
-  const [error, setError] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-
-    apiGet<HealthStatus>('/health')
-      .then((data) => {
-        if (!cancelled) setHealth(data);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setError(err instanceof ApiError ? err.message : 'Could not reach the API.');
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
-
   return (
-    <main className="mx-auto max-w-2xl p-8">
-      <h1 className="text-2xl font-semibold">Margin Dashboard</h1>
-      <p className="mt-2 text-sm" style={{ color: 'var(--color-text-muted)' }}>
-        Scaffold only — the dashboard lands in later issues.
-      </p>
+    <div className="flex min-h-dvh flex-col sm:flex-row">
+      <SidebarNav />
 
-      <section
-        className="mt-6 rounded-lg border p-4"
-        style={{ backgroundColor: 'var(--color-surface)', borderColor: 'var(--color-border)' }}
-      >
-        <h2 className="text-sm font-medium">API</h2>
-        {error !== null ? (
-          <p className="mt-1 text-sm" style={{ color: 'var(--color-negative)' }}>
-            {error}
-          </p>
-        ) : health === null ? (
-          <p className="mt-1 text-sm" style={{ color: 'var(--color-text-muted)' }}>
-            Checking…
-          </p>
-        ) : (
-          <p className="mt-1 text-sm" style={{ color: 'var(--color-positive)' }}>
-            {health.service} is up — <span className="tabular">{health.uptimeSeconds}</span>s uptime
-          </p>
-        )}
-      </section>
-    </main>
+      <main className="min-w-0 flex-1 px-5 py-6 sm:px-8 sm:py-8">
+        <Routes>
+          <Route path="/" element={<DashboardPage />} />
+          <Route path="/projects" element={<ProjectsPage />} />
+          <Route path="/employees" element={<EmployeesPage />} />
+          <Route path="/categories" element={<CategoriesPage />} />
+          <Route path="/upload" element={<UploadPage />} />
+          <Route path="/settings" element={<SettingsPage />} />
+          <Route
+            path="/404"
+            element={
+              <PagePlaceholder
+                title="Page not found"
+                description="That address does not match any part of the dashboard."
+                plannedIn="nothing — check the link"
+              />
+            }
+          />
+          <Route path="*" element={<Navigate to="/404" replace />} />
+        </Routes>
+      </main>
+    </div>
   );
 }
