@@ -8,7 +8,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import type { PeriodSummary } from '@shared/types';
 
 import { createApp } from '../../src/app';
-import { closeDb, useDatabase } from '../../src/lib/db';
+import { closeDb, getDb, useDatabase } from '../../src/lib/db';
 import { parseProjects } from '../../src/parse/projects';
 import { parseSalary } from '../../src/parse/salary';
 import { parseTimesheet } from '../../src/parse/timesheet';
@@ -105,6 +105,24 @@ describe('GET /api/dashboard', () => {
 
     expect(summary.unpricedRefCodes).toEqual([]);
     expect(summary.missingSalaryEmployees).toEqual([]);
+  });
+
+  it('names the employee behind a salary row that is missing', async () => {
+    // The banner's own claim, end to end: take one salary away and the dashboard
+    // says whose, rather than costing those hours at zero in silence.
+    seed();
+    getDb()
+      .prepare("DELETE FROM salaries WHERE employee_no = '10201' AND year = 2025 AND month = 3")
+      .run();
+
+    const summary = await dashboard('year=2025');
+
+    expect(summary.missingSalaryEmployees).toEqual([
+      { employeeNo: '10201', employeeName: 'Ayesha Rahman', year: 2025, month: 3 },
+    ]);
+    // Cost is understated by exactly the salary that went missing, which is what
+    // the banner warns the reader about.
+    expect(summary.totalCost).toBeCloseTo(2_400_000 - 18_000, 2);
   });
 
   it('applies saved overhead to the totals', async () => {

@@ -291,6 +291,54 @@ describe('the period filter', () => {
   });
 });
 
+describe('a period with nothing in it', () => {
+  it('says so rather than printing six cards of zeroes', async () => {
+    dashboard.mockResolvedValue(
+      summary({
+        totalSalaries: 0,
+        totalOverhead: 0,
+        totalCost: 0,
+        totalRevenue: 0,
+        totalProfit: 0,
+        marginPct: null,
+        totalHours: 0,
+        billableHours: 0,
+        nonBillableHours: 0,
+        productivityPct: null,
+      }),
+    );
+
+    renderAt('/?year=2025&month=6');
+
+    expect(await screen.findByText(/no hours were logged in this period/i)).toBeDefined();
+    expect(screen.queryByText('AED 0')).toBeNull();
+  });
+
+  it('keeps the cards for a month that carries overhead and nothing else', async () => {
+    // Overhead is costed for a month with no rows in it, so this period has a
+    // real cost figure. Calling it empty would hide money the agency spent.
+    dashboard.mockResolvedValue(
+      summary({
+        totalSalaries: 0,
+        totalOverhead: 5_000,
+        totalCost: 5_000,
+        totalRevenue: 0,
+        totalProfit: -5_000,
+        marginPct: null,
+        totalHours: 0,
+        billableHours: 0,
+        nonBillableHours: 0,
+        productivityPct: null,
+      }),
+    );
+
+    renderAt('/?year=2025&month=6');
+
+    expect(await screen.findByText('AED 5,000')).toBeDefined();
+    expect(screen.queryByText(/no hours were logged in this period/i)).toBeNull();
+  });
+});
+
 describe('gaps in the data', () => {
   it('names unpriced ref codes and employees with no salary', async () => {
     dashboard.mockResolvedValue(

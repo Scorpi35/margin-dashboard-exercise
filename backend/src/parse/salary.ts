@@ -24,7 +24,7 @@ import {
  * sits in row 2 under a title row, and no row carries a year.
  */
 
-const SHEET_NAME = 'Salary';
+export const SALARY_SHEET = 'Salary';
 
 const REQUIRED_COLUMNS = {
   employeeNo: 'employee no',
@@ -49,7 +49,7 @@ const MONTH_NAMES = [
 const YEAR_PATTERN = /20\d\d/;
 
 export function parseSalary(buffer: Buffer, fileName: string): ParseResult<SalaryRow> {
-  const sheet = requireSheet(loadWorkbook(buffer), SHEET_NAME);
+  const sheet = requireSheet(loadWorkbook(buffer), SALARY_SHEET);
   const headerRowIndex = findHeaderRow(sheet, [...Object.values(REQUIRED_COLUMNS), ...MONTH_NAMES]);
   const headerKeys = sheetHeaderKeys(sheet, headerRowIndex);
 
@@ -66,7 +66,7 @@ export function parseSalary(buffer: Buffer, fileName: string): ParseResult<Salar
 
   for (const { rowNumber, values } of sheetRowsFromHeader(sheet, headerRowIndex)) {
     const warn = (message: string): void => {
-      warnings.push({ file: fileName, sheet: SHEET_NAME, row: rowNumber, message });
+      warnings.push({ file: fileName, sheet: SALARY_SHEET, row: rowNumber, message });
     };
 
     const employeeNo = text(values[columns.employeeNo]);

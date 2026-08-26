@@ -14,9 +14,10 @@ import type {
 } from '@shared/types';
 
 import { yearMonthKey } from '../parse/dates';
-import { parseProjects } from '../parse/projects';
-import { parseSalary } from '../parse/salary';
-import { parseTimesheet } from '../parse/timesheet';
+import { loadWorkbook } from '../parse/xlsx-helpers';
+import { parseProjects, PROJECTS_SHEET } from '../parse/projects';
+import { parseSalary, SALARY_SHEET } from '../parse/salary';
+import { parseTimesheet, TIMESHEET_SHEET } from '../parse/timesheet';
 import { getDb } from '../lib/db';
 import { HttpError } from '../middleware/errorHandler';
 
@@ -64,19 +65,19 @@ export function ingestUpload(type: UploadType, buffer: Buffer, fileName: string)
       return toResult(
         type,
         fileName,
-        ingestTimesheet(parse(parseTimesheet, buffer, fileName), fileName),
+        ingestTimesheet(parse(parseTimesheet, buffer, fileName, type), fileName),
       );
     case 'salary':
       return toResult(
         type,
         fileName,
-        ingestSalaries(parse(parseSalary, buffer, fileName), fileName),
+        ingestSalaries(parse(parseSalary, buffer, fileName, type), fileName),
       );
     case 'projects':
       return toResult(
         type,
         fileName,
-        ingestProjects(parse(parseProjects, buffer, fileName), fileName),
+        ingestProjects(parse(parseProjects, buffer, fileName, type), fileName),
       );
   }
 }
@@ -92,13 +93,64 @@ function parse<T>(
   parser: (buffer: Buffer, fileName: string) => ParseResult<T>,
   buffer: Buffer,
   fileName: string,
+  type: UploadType,
 ): ParseResult<T> {
   try {
     return parser(buffer, fileName);
   } catch (err) {
     const detail = err instanceof Error ? err.message : String(err);
-    throw new HttpError(400, `${detail} Nothing was saved.`);
+    const hint = describeLikelySlot(buffer, type);
+
+    throw new HttpError(400, `${detail}${hint} Nothing was saved.`);
   }
+}
+
+/**
+ * The sheet each parser insists on, and therefore what a workbook identifies as.
+ *
+ * The names come from the parsers themselves rather than a fourth copy of the
+ * same three strings, so renaming a sheet cannot leave this half-updated.
+ */
+const SLOTS: Readonly<Record<UploadType, { readonly sheet: string; readonly label: string }>> = {
+  timesheet: { sheet: TIMESHEET_SHEET, label: 'timesheet' },
+  salary: { sheet: SALARY_SHEET, label: 'salary sheet' },
+  projects: { sheet: PROJECTS_SHEET, label: 'project price list' },
+};
+
+/**
+ * Which slot a rejected file actually belongs in, if it is one of the three.
+ *
+ * The parser's own message says what was missing; it cannot say what to do about
+ * it. Naming the slot turns "no sheet named Timesheet" into an instruction, and
+ * the three files identify themselves by the sheet they carry.
+ *
+ * Silent on anything it cannot read: a damaged workbook has its own message and
+ * this must not talk over it, so a failure here adds nothing at all.
+ */
+function describeLikelySlot(buffer: Buffer, attempted: UploadType): string {
+  let sheetNames: readonly string[];
+
+  try {
+    sheetNames = loadWorkbook(buffer).SheetNames;
+  } catch {
+    return '';
+  }
+
+  // A workbook can carry several of these as tabs. If it has the sheet for the
+  // slot it was dropped into, it is in the right slot and something else is
+  // wrong with it — the parser's own message already says what, and sending the
+  // reader to a different slot would send them away from the actual fix.
+  if (sheetNames.includes(SLOTS[attempted].sheet)) return '';
+
+  const match = (Object.keys(SLOTS) as UploadType[]).find(
+    (type) => type !== attempted && sheetNames.includes(SLOTS[type].sheet),
+  );
+
+  if (match === undefined) return '';
+
+  const slot = SLOTS[match];
+
+  return ` This looks like the ${slot.label} — upload it in the ${slot.sheet} slot.`;
 }
 
 function toResult(type: UploadType, fileName: string, summary: IngestSummary): UploadResult {

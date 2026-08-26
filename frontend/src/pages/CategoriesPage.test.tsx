@@ -187,6 +187,35 @@ describe('an empty period', () => {
   });
 });
 
+describe('when the API fails', () => {
+  it('says so at page level instead of rendering an empty table', async () => {
+    categories.mockRejectedValue(new Error('network down'));
+
+    renderAt('/categories');
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(
+      /could not load the categories/i,
+    );
+  });
+});
+
+describe('with no data at all', () => {
+  it('points at the upload page rather than at an empty period', async () => {
+    // Nothing ingested is a different claim from a period in which nothing was
+    // logged, and the two need different answers.
+    meta.mockResolvedValue({
+      years: [],
+      months: [],
+      categories: [],
+      settings: { billableCategories: [], monthlyOverhead: {} },
+    } as AppMeta);
+
+    renderAt('/categories');
+
+    expect(await screen.findByText(/nothing to report yet/i)).toBeDefined();
+  });
+});
+
 describe('the period filter', () => {
   it('refetches when a month is chosen', async () => {
     const user = userEvent.setup();
