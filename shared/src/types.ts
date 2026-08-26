@@ -195,7 +195,15 @@ export interface MonthCostSummary {
   readonly billableHours: number;
   readonly nonBillableHours: number;
   readonly overhead: number;
-  /** Support-staff salaries + non-billable hours at their direct rate + overhead. */
+  /** Whole salaries of everyone who logged no hours this month. First pool component. */
+  readonly supportStaffSalaries: number;
+  /** Non-billable hours valued at each person's own direct rate. Second pool component. */
+  readonly nonBillableCost: number;
+  /**
+   * `supportStaffSalaries + nonBillableCost + overhead`. The three components are
+   * reported alongside it because a pool that looks wrong is only diagnosable by
+   * seeing which part of it moved.
+   */
   readonly indirectPool: number;
   /** `indirectPool ÷ billableHours`. `0` — not `Infinity` — when there are none. */
   readonly indirectRate: number;
@@ -247,6 +255,10 @@ export interface ProjectFinancials {
   readonly profit: number | null;
   /** `profit ÷ revenue`. `null` when unpriced or the price is zero. */
   readonly marginPct: number | null;
+  /** In-period billable hours per department, for the mix behind the margin. */
+  readonly hoursByDepartment: Readonly<Record<string, number>>;
+  /** In-period fully-loaded cost per department. Sums to `totalCost`. */
+  readonly costByDepartment: Readonly<Record<string, number>>;
   readonly employees: readonly EmployeeProjectContribution[];
 }
 
