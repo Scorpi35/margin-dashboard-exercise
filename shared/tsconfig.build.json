@@ -7,7 +7,7 @@
     // CommonJS for the backend, which `require`s this package at runtime. The
     // frontend gets the ESM build instead — see tsconfig.build.esm.json.
     "module": "CommonJS",
-    "moduleResolution": "Node",
+    "moduleResolution": "node10",
     // Incompatible with a CommonJS emit, and unnecessary here — `types.ts` has
     // no imports to preserve.
     "verbatimModuleSyntax": false,

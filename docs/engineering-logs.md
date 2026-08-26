@@ -724,3 +724,25 @@ absolute path` — then restoring it.
 
 Noted in `docs/coding-guidelines.md`, because a fourth workspace would bring the
 problem straight back.
+
+### Deprecated tsconfig options
+
+Two settings the editor flags and the compiler does not: `tsc` reports nothing
+for either, so these were only ever visible in the editor, which renders
+deprecated options struck through.
+
+- **`"moduleResolution": "Node"` → `"node10"`** in `backend/tsconfig.json` and
+  `shared/tsconfig.build.json`. TypeScript 5.0 renamed the value; `Node` has been
+  the deprecated alias since. A pure rename — `tsc --showConfig` reports the same
+  resolution kind, and the backend still resolves `@shared/types` through the
+  package's `types`/`main` fields exactly as before.
+- **`baseUrl` removed** from `frontend/tsconfig.json`. It is deprecated, and
+  since TypeScript 4.4 `paths` resolves relative to the tsconfig's own directory,
+  so `"baseUrl": "."` was restating the default. Verified with
+  `--traceResolution` that `@/lib/format` still resolves through `paths`.
+
+Deliberately _not_ moved to `node16`/`nodenext` for the backend. That would let
+TypeScript honour the `exports` conditions on `@shared/types` rather than falling
+back to `main`, which is tidier — but it changes module-detection semantics and
+would need `module` moved in step. `node10` preserves today's behaviour exactly,
+which is what a deprecation rename should do. Worth doing on its own another day.
