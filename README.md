@@ -67,14 +67,22 @@ reviewer does not have to find them.
 | **The dashboard's empty state needs zero hours, zero cost and zero revenue — not zero hours alone.**                         | Overhead is costed for a month with no rows in it, so a month carrying overhead and nothing else has a real cost figure and keeps its cards. Calling that period empty would hide money the agency spent.                                                                          |
 | **The overhead table shows every month that has data, plus any month already carrying overhead.**                            | Overhead is costed for a month even when no rows exist for it, so a month whose timesheet was later replaced still has real cost against it. An invisible row cannot be cleared.                                                                                                   |
 | **`PUT /api/settings` replaces both settings whole rather than patching them.**                                              | Unchecking a category _is_ leaving it out of the list; there is no partial update that can express it.                                                                                                                                                                             |
+## Notes
 
-## What I would do next
+### What I would do next
 
 - Complete the features listed in the **stretch section**.
 - Polish and refine the UI for a more consistent and polished user experience.
 - Integrate **Codex** into the CI/CD pipeline as the final stage for automated code review.
 
-## Notes
+### What would I cut and why?
+I can't think of anything specific I'd cut right now. Every feature I worked on looked important.
+
+### What I'm not happy about?
+- Missing Codex review; I would integrate it into the CI/CD pipeline as the final stage for automated code review.
+- I'm not happy about the UI; I would improve it significantly.
+
+## Additional Information
 
 ### Verifying the checks the way CI would
 
