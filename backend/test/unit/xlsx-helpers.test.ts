@@ -5,10 +5,15 @@ import { describe, expect, it } from 'vitest';
 import * as XLSX from 'xlsx';
 
 import {
+  findColumn,
   findHeaderRow,
   isBlankCell,
   loadWorkbook,
   parseNumericCell,
+  requireSheet,
+  resolveColumns,
+  sheetCells,
+  sheetHeaderKeys,
   sheetRowsFromHeader,
 } from '../../src/parse/xlsx-helpers';
 
@@ -270,5 +275,102 @@ describe('sheetRowsFromHeader', () => {
 
   it('throws when the header row is outside the sheet', () => {
     expect(() => sheetRowsFromHeader(sheetOf([['Ref Code']]), 5)).toThrow(/outside the sheet/i);
+  });
+});
+
+describe('requireSheet', () => {
+  it('returns the first sheet when no name is given', () => {
+    const workbook = loadWorkbook(readFileSync(join(SAMPLE_DATA, 'salaries-2025.xlsx')));
+
+    expect(requireSheet(workbook)).toBe(workbook.Sheets.Salary);
+  });
+
+  it('returns the named sheet', () => {
+    const workbook = loadWorkbook(readFileSync(join(SAMPLE_DATA, 'timesheet-2025.xlsx')));
+
+    expect(requireSheet(workbook, 'Timesheet')).toBe(workbook.Sheets.Timesheet);
+  });
+
+  it('throws listing what the workbook actually contains', () => {
+    const workbook = loadWorkbook(readFileSync(join(SAMPLE_DATA, 'timesheet-2025.xlsx')));
+
+    expect(() => requireSheet(workbook, 'Salary')).toThrow(/no sheet named "Salary".*"Timesheet"/s);
+  });
+});
+
+describe('sheetHeaderKeys', () => {
+  it('trims the names and drops blank columns', () => {
+    const sheet = sheetOf([
+      ['  Ref Code  ', null, 'Hours', '-'],
+      ['Q2025001a', 'x', 12.5, 'y'],
+    ]);
+
+    expect(sheetHeaderKeys(sheet, 0)).toEqual(['Ref Code', 'Hours']);
+  });
+
+  it('matches the keys sheetRowsFromHeader produces', () => {
+    const sheet = firstSheet('salaries-2025.xlsx');
+    const keys = sheetHeaderKeys(sheet, 1);
+
+    expect(Object.keys(sheetRowsFromHeader(sheet, 1)[0].values)).toEqual(keys);
+  });
+
+  it('is empty for a row outside the sheet', () => {
+    expect(sheetHeaderKeys(sheetOf([['Ref Code']]), 5)).toEqual([]);
+  });
+});
+
+describe('sheetCells', () => {
+  it('exposes the rows above a header, where the salary year lives', () => {
+    const sheet = firstSheet('salaries-2025.xlsx');
+
+    expect(String(sheetCells(sheet)[0][1])).toMatch(/20\d\d/);
+  });
+});
+
+describe('findColumn', () => {
+  const headers = [
+    'Ref Code',
+    'Project (Billable) / Task (Unbillable) Name',
+    'Company Name (Billable)/ Fixed Costs (Unbillable)',
+    'Hours',
+  ];
+
+  it('locates a long column by a short case-insensitive substring', () => {
+    expect(findColumn(headers, 'company name')).toBe(headers[2]);
+    expect(findColumn(headers, 'HOURS')).toBe('Hours');
+  });
+
+  it('returns null when nothing matches', () => {
+    expect(findColumn(headers, 'invoice')).toBeNull();
+    expect(findColumn(headers, '   ')).toBeNull();
+  });
+
+  it('takes the first match when a needle fits more than one column', () => {
+    // Why projects.ts uses 'name' and 'price' rather than the ambiguous 'project'.
+    expect(findColumn(['Project (Billable) Name', 'Project Price'], 'project')).toBe(
+      'Project (Billable) Name',
+    );
+  });
+});
+
+describe('resolveColumns', () => {
+  const headers = ['Ref Code', 'Project Price', 'Sales month'];
+
+  it('maps a parser vocabulary onto the header text a sheet actually uses', () => {
+    expect(resolveColumns(headers, { refCode: 'ref code', price: 'price' })).toEqual({
+      refCode: 'Ref Code',
+      price: 'Project Price',
+    });
+  });
+
+  it('throws naming every column it could not find', () => {
+    expect(() =>
+      resolveColumns(headers, { hours: 'hours', employeeNo: 'employee no', refCode: 'ref code' }),
+    ).toThrow(/"hours", "employee no"/);
+  });
+
+  it('lists the headers it did see, so the mismatch is diagnosable', () => {
+    expect(() => resolveColumns(headers, { hours: 'hours' })).toThrow(/"Sales month"/);
   });
 });

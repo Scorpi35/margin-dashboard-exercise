@@ -93,7 +93,7 @@ export function findHeaderRow(
   expectedHeaders: readonly string[],
   maxRowsToScan = 10,
 ): number {
-  const matrix = sheetMatrix(sheet);
+  const matrix = sheetCells(sheet);
   const needles = expectedHeaders
     .map((header) => header.trim().toLowerCase())
     .filter((header) => header !== '');
@@ -171,7 +171,7 @@ export function parseNumericCell(value: unknown): number | null {
  * @throws if `headerRowIndex` falls outside the sheet.
  */
 export function sheetRowsFromHeader(sheet: XLSX.WorkSheet, headerRowIndex: number): SheetRow[] {
-  const matrix = sheetMatrix(sheet);
+  const matrix = sheetCells(sheet);
   const header = matrix[headerRowIndex];
 
   if (header === undefined) {
@@ -199,8 +199,95 @@ export function sheetRowsFromHeader(sheet: XLSX.WorkSheet, headerRowIndex: numbe
   return rows;
 }
 
-/** The sheet as a rectangular grid of raw cell values, blank rows included. */
-function sheetMatrix(sheet: XLSX.WorkSheet): unknown[][] {
+/**
+ * The sheet a parser expects, or a descriptive throw.
+ *
+ * A workbook whose sheet is missing or renamed is the "file isn't what it claims
+ * to be" case, which must fail before anything is written.
+ */
+export function requireSheet(workbook: XLSX.WorkBook, sheetName?: string): XLSX.WorkSheet {
+  if (sheetName === undefined) {
+    return workbook.Sheets[workbook.SheetNames[0]];
+  }
+
+  const sheet = workbook.Sheets[sheetName];
+  if (sheet === undefined) {
+    throw new Error(
+      `The workbook has no sheet named "${sheetName}". It contains: ` +
+        `${workbook.SheetNames.map((name) => `"${name}"`).join(', ')}.`,
+    );
+  }
+
+  return sheet;
+}
+
+/**
+ * The column names on a header row, trimmed, blanks dropped — the same keys
+ * `sheetRowsFromHeader` will produce for that row.
+ */
+export function sheetHeaderKeys(sheet: XLSX.WorkSheet, headerRowIndex: number): string[] {
+  const header = sheetCells(sheet)[headerRowIndex];
+  if (header === undefined) return [];
+
+  return header.filter((cell) => !isBlankCell(cell)).map((cell) => String(cell).trim());
+}
+
+/**
+ * The header key holding a column, located by case-insensitive substring.
+ *
+ * Nobody types `"Project (Billable) / Task (Unbillable) Name"` correctly, and the
+ * real timesheet spells its company column `"Company Name (Billable)/ Fixed
+ * Costs (Unbillable)"` — spaced differently from how the docs quote it. Exact
+ * matching would miss both. The first match wins when a needle fits more than one
+ * column, so needles need to be chosen to be unambiguous.
+ */
+export function findColumn(headerKeys: readonly string[], needle: string): string | null {
+  const target = needle.trim().toLowerCase();
+  if (target === '') return null;
+
+  return headerKeys.find((key) => key.toLowerCase().includes(target)) ?? null;
+}
+
+/**
+ * Resolves every required column at once, mapping a parser's own vocabulary onto
+ * whatever the sheet happens to call things.
+ *
+ * @throws naming every column it could not find. A missing required column means
+ * the file isn't the one it claims to be, so this fails before a single row is read.
+ */
+export function resolveColumns<K extends string>(
+  headerKeys: readonly string[],
+  spec: Readonly<Record<K, string>>,
+): Record<K, string> {
+  const resolved = {} as Record<K, string>;
+  const missing: string[] = [];
+
+  for (const [field, needle] of Object.entries(spec) as [K, string][]) {
+    const key = findColumn(headerKeys, needle);
+    if (key === null) {
+      missing.push(needle);
+    } else {
+      resolved[field] = key;
+    }
+  }
+
+  if (missing.length > 0) {
+    throw new Error(
+      `The sheet is missing required column(s): ${missing.map((n) => `"${n}"`).join(', ')}. ` +
+        `It has: ${headerKeys.map((k) => `"${k}"`).join(', ')}.`,
+    );
+  }
+
+  return resolved;
+}
+
+/**
+ * The sheet as a rectangular grid of raw cell values, blank rows included.
+ *
+ * Exposed so a parser can read what sits *above* its header row — the salary
+ * sheet's year lives in a title row, not in the data.
+ */
+export function sheetCells(sheet: XLSX.WorkSheet): unknown[][] {
   return XLSX.utils.sheet_to_json<unknown[]>(sheet, {
     header: 1,
     blankrows: true,
