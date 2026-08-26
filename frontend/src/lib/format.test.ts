@@ -96,6 +96,25 @@ describe('formatBarWidth', () => {
     expect(formatBarWidth(-0.2)).toBe('0.0%');
   });
 
+  it('scales against a maximum when one is given', () => {
+    // A column of bars compared with each other, not with 100%.
+    expect(formatBarWidth(12_540.9, 12_540.9)).toBe('100.0%');
+    expect(formatBarWidth(2_180.4, 12_540.9)).toBe('17.4%');
+    expect(formatBarWidth(0, 12_540.9)).toBe('0.0%');
+  });
+
+  it('draws nothing when the maximum is zero or unusable', () => {
+    // Every row at zero has no scale to draw against, and 0/0 is not a width.
+    expect(formatBarWidth(0, 0)).toBe('0%');
+    expect(formatBarWidth(5, 0)).toBe('0%');
+    expect(formatBarWidth(5, -1)).toBe('0%');
+    expect(formatBarWidth(5, Number.NaN)).toBe('0%');
+  });
+
+  it('still clamps when a value exceeds its maximum', () => {
+    expect(formatBarWidth(20, 10)).toBe('100.0%');
+  });
+
   it('draws nothing for an absent or unusable share', () => {
     // Unlike formatPct, this returns a width rather than an em dash — there is
     // no such thing as a dash-wide bar.

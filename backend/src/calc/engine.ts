@@ -1,5 +1,5 @@
 import type {
-  CategoryRow,
+  CategoryBreakdown,
   EmployeeMonthCost,
   EmployeeProjectContribution,
   MissingSalaryEmployee,
@@ -108,6 +108,8 @@ export function computeEmployeeMonthCosts(input: CostInput): EmployeeMonthCost[]
     };
 
     group.totalHours += row.hours;
+    // Classified here per employee-month, and again per category in
+    // `computeCategoryBreakdown`. The two must stay in step.
     if (billable.has(row.category)) group.billableHours += row.hours;
     groups.set(key, group);
   }
@@ -395,27 +397,49 @@ export function computeProductivity(input: CostInput, period: Period): Productiv
   );
 }
 
-/** Where the hours went, by category, largest first. */
-export function computeCategoryBreakdown(input: CostInput, period: Period): CategoryRow[] {
+/**
+ * Where the hours went, by category, largest first.
+ *
+ * The totals come back alongside the rows so nothing downstream has to add them
+ * up — the same figures the dashboard reports, from the same place.
+ */
+export function computeCategoryBreakdown(input: CostInput, period: Period): CategoryBreakdown {
   const billable = new Set(input.settings.billableCategories);
-  const rows = input.timesheet.filter((row) => inPeriod(row, period));
-  const totalHours = sum(rows, (row) => row.hours);
+  const inScope = input.timesheet.filter((row) => inPeriod(row, period));
+  const totalHours = sum(inScope, (row) => row.hours);
 
   const hours = new Map<string, number>();
-  for (const row of rows) {
+  for (const row of inScope) {
     hours.set(row.category, (hours.get(row.category) ?? 0) + row.hours);
   }
 
-  return [...hours.entries()]
+  const rows = [...hours.entries()]
     .map(([category, categoryHours]) => ({
       category,
       // Never inferred from a name prefix: Tentwenty is internal work and carries
       // no "FC - " prefix (docs/data-sources.md).
-      billable: billable.has(category),
+      isBillable: billable.has(category),
       hours: categoryHours,
       hoursPct: totalHours === 0 ? null : categoryHours / totalHours,
     }))
     .sort((a, b) => b.hours - a.hours || a.category.localeCompare(b.category));
+
+  // The same figure `PeriodSummary.billableHours` reports, reached another way:
+  // that one sums per employee-month, this one per category. Both classify the
+  // same rows with the same set, so they agree — a change to how billability is
+  // applied has to land in both. Three tests pin them together (engine,
+  // real-data and the categories integration suite).
+  const billableHours = sum(
+    rows.filter((row) => row.isBillable),
+    (row) => row.hours,
+  );
+
+  return {
+    rows,
+    totalHours,
+    billableHours,
+    nonBillableHours: totalHours - billableHours,
+  };
 }
 
 /* -------------------------------------------------------------------------- */

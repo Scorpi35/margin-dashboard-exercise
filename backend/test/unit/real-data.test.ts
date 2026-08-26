@@ -172,27 +172,44 @@ describe('the year as a whole', () => {
   });
 
   it('keeps Tentwenty non-billable despite the missing FC prefix', () => {
-    const categories = computeCategoryBreakdown(input, YEAR);
+    const { rows: categories } = computeCategoryBreakdown(input, YEAR);
     const tentwenty = categories.find((row) => row.category === 'Tentwenty');
 
-    expect(tentwenty?.billable).toBe(false);
+    expect(tentwenty?.isBillable).toBe(false);
     expect(tentwenty?.hours).toBeCloseTo(138.7, 1);
   });
 
   it('reports the documented category hours, largest first', () => {
-    const categories = computeCategoryBreakdown(input, YEAR);
+    const { rows: categories } = computeCategoryBreakdown(input, YEAR);
 
-    expect(categories[0]).toMatchObject({ category: 'Projects', billable: true });
+    expect(categories[0]).toMatchObject({ category: 'Projects', isBillable: true });
     expect(categories[0].hours).toBeCloseTo(12_540.9, 1);
     expect(categories.map((row) => row.hours)).toEqual(
       [...categories.map((row) => row.hours)].sort((a, b) => b - a),
     );
     expect(
       categories
-        .filter((row) => row.billable)
+        .filter((row) => row.isBillable)
         .map((row) => row.category)
         .sort(),
     ).toEqual(['Enhancements', 'Hosting', 'Projects']);
+  });
+
+  it('carries totals that agree with the dashboard', () => {
+    const breakdown = computeCategoryBreakdown(input, YEAR);
+    const summary = computePeriodSummary(input, YEAR);
+
+    expect(breakdown.totalHours).toBeCloseTo(19_815.2, 1);
+    expect(breakdown.billableHours).toBeCloseTo(15_265.6, 1);
+    expect(breakdown.nonBillableHours).toBeCloseTo(4_549.6, 1);
+
+    // Same figures as the dashboard reports, from the same computation.
+    expect(breakdown.totalHours).toBeCloseTo(summary.totalHours, 4);
+    expect(breakdown.billableHours).toBeCloseTo(summary.billableHours, 4);
+    expect(breakdown.rows.reduce((sum, row) => sum + row.hours, 0)).toBeCloseTo(
+      breakdown.totalHours,
+      4,
+    );
   });
 });
 
