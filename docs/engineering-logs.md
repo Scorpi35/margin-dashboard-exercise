@@ -359,3 +359,50 @@ mystery.
 **Also worth knowing:** deleting `data/` while `npm run dev` is up leaves the
 process holding a stale SQLite handle, with the same symptom of database routes
 failing while the app looks healthy. Restart the server.
+
+## 2026-08-26 — MD-11: dashboard
+
+`GET /api/dashboard?year&month` and `GET /api/meta`, behind a page with six stat
+cards and a period filter. First use of `usePeriodFilter`, which every filtered
+page from here shares.
+
+Decisions worth knowing about:
+
+- **The whole dataset goes to the engine, never a pre-filtered slice.**
+  `dashboard.service.ts` loads every row and passes the period alongside it, so
+  the period selects which rows are _aggregated_ while rates stay derived from
+  the full month they belong to. Filtering to March must not recompute March's
+  direct and indirect rates from a subset of March. Commented at the call site.
+- **The default period is written into the URL rather than held implicitly.**
+  With no `?year=`, the page adopts the most recent year that has data and
+  replaces the URL with it. A period the address bar does not show is not
+  linkable, which defeats the point of keeping filter state there.
+- **An unreadable `?year=` falls back to the default instead of being coerced.**
+  `usePeriodFilter` treats anything non-numeric as absent — a `NaN` reaching the
+  filter renders an empty dashboard that looks like a real answer.
+- **`/api/meta` is separate from the summary** because it changes only on an
+  upload or a settings save, while the summary changes with every filter. Its
+  `years` also drive the empty state: no years means nothing has been ingested,
+  which is a different claim from a year in which the agency did no work.
+- **`readAvailableYears()` unions both tables.** A year with salaries but no
+  logged hours still has cost in it; offering only years with timesheet rows
+  would hide that.
+- **A `DataGapsBanner` sits above the cards.** Not in the acceptance criteria, but
+  the coding guidelines require unpriced ref codes and missing salaries to be
+  surfaced — an em dash the reader cannot account for is worse than no number.
+
+### On "a project's cost is identical whether viewed unfiltered or filtered"
+
+Taken literally this holds only for a project whose hours fall in one month, and
+the sample has none — all eleven span several. The meaningful form is that a
+project's twelve monthly costs sum to its annual cost, which is what proves rates
+are not being recomputed from a filtered subset. Verified exactly, all eleven:
+
+```
+Q2025001a   annual 468776.21   sum of months 468776.21
+E2025050a   annual 195062.44   sum of months 195062.44
+…
+```
+
+The same decomposition holds for company-wide cost: the twelve monthly totals sum
+to AED 2,400,000.00.

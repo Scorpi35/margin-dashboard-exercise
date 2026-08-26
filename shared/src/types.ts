@@ -356,6 +356,20 @@ export interface ApiFailure {
 
 export type ApiResponse<T> = ApiSuccess<T> | ApiFailure;
 
+/**
+ * Payload of `GET /api/meta` — what the filters need to offer real choices.
+ *
+ * Separate from the dashboard itself because it changes only on an upload or a
+ * settings save, while the summary changes with every filter.
+ */
+export interface AppMeta {
+  /** Years that have any data, ascending. Empty means nothing has been ingested. */
+  readonly years: readonly number[];
+  /** Every category the timesheet has ever contained, sorted. */
+  readonly categories: readonly string[];
+  readonly settings: Settings;
+}
+
 /** Payload of `GET /api/health`. */
 export interface HealthStatus {
   /**
