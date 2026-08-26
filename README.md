@@ -70,7 +70,7 @@ reviewer does not have to find them.
 
 ## What I would do next
 
-- Implement the missing **should-have features** and complete the features listed in the **stretch section**.
+- Complete the features listed in the **stretch section**.
 - Polish and refine the UI for a more consistent and polished user experience.
 - Integrate **Codex** into the CI/CD pipeline as the final stage for automated code review.
 
@@ -115,15 +115,6 @@ Run from the repo root.
 | `npm run seed`             | Ingests `sample-data/` into SQLite         |
 | `npm run seed -- --fresh`  | Empties every table first, then ingests    |
 | `npm run selfcheck`        | Enforces the cost reconciliation invariant |
-
-`selfcheck` reads whatever is in the database, so **seed before you check** —
-steps 4 and 5 of [Getting started](#getting-started). It honours your saved
-billable categories but forces overhead to `{}` — overhead is real cost that
-isn't salary, so it legitimately breaks `cost == salaries` and would make the
-check untestable.
-
-Both scripts run through `tsx` without starting Express, and both exit non-zero
-on failure.
 
 ### Troubleshooting
 
