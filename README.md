@@ -12,147 +12,25 @@ checkout.
 - Node.js >= 22.12 (`.nvmrc` pins 22 — `nvm use`)
 - npm 10+
 
-## Getting started
+## Setup Instructions
 
-Six commands from a clean clone to a dashboard with data in it. Run every one
-from the repo root.
+| Steps | Command | Description |
+| --- | --- | --- |
+| 1. Clone the repository | `git clone git@github.com:Scorpi35/margin-dashboard-exercise.git && cd margin-dashboard-exercise` | Clones the repository and moves into the project directory. |
+| 2. Use Node.js 22 | `nvm use` | Switches to the Node.js version specified by `.nvmrc`. The project requires Node.js >= 22.12. |
+| 3. Install dependencies | `npm install` | Installs dependencies for all three workspaces and builds the `shared/` workspace. |
+| 4. Seed the database | `npm run seed` | Imports the spreadsheets from `sample-data/` into SQLite and creates `data/` if needed. |
+| 5. Verify the cost model | `npm run selfcheck` | Checks that the computed monthly cost reconciles with total salaries. |
+| 6. Start the application | `npm run dev` | Starts the frontend and backend development servers. |
 
-**1. Clone and enter the repo.**
+### Application URLs
 
-```bash
-git clone git@github.com:Scorpi35/margin-dashboard-exercise.git
-cd margin-dashboard-exercise
-```
+- Frontend: `http://localhost:5173`
+- API: `http://localhost:4000`
+- Health check: `http://localhost:5173/api/health`
 
-**2. Switch to Node 22.** `.nvmrc` pins it, and `npm install` refuses to run on
-anything else (`engine-strict`). `better-sqlite3` ships a native module built
-against this version.
-
-```bash
-nvm use
-```
-
-**3. Install.** One install at the root covers all three workspaces; it also
-builds `shared/`, which the backend and the frontend both import.
-
-```bash
-npm install
-```
-
-**4. Seed the database.** The three spreadsheets in `sample-data/` are committed,
-so this needs no download and no credentials. It creates `data/` on demand.
-
-```bash
-npm run seed
-```
-
-```
-seed complete
-
-  timesheet_entries   562 rows
-  salaries            144 rows
-  projects             11 rows
-
-  0 warnings. Run `npm run selfcheck` to verify the cost model reconciles.
-```
-
-Seeding is an ordinary ingest, so running it twice leaves the same row counts.
-After experimenting with uploads of your own, `npm run seed -- --fresh` empties
-every table first.
-
-**5. Check the cost model reconciles.** With overhead forced to `{}`, computed
-cost must equal total salaries to the dirham, month by month.
-
-```bash
-npm run selfcheck
-```
-
-```
-selfcheck — overhead forced to {}
-
-2025: total salaries = 2400000.00 | total computed cost = 2400000.00 | PASS
-  01: salaries = 197000.00 | computed = 197000.00 | PASS
-  ...
-  12: salaries = 203000.00 | computed = 203000.00 | PASS
-
-selfcheck PASS
-```
-
-**6. Start the app.**
-
-```bash
-npm run dev
-```
-
-- Frontend: http://localhost:5173
-- API: http://localhost:4000
-- Health check through the dev proxy: http://localhost:5173/api/health
-
-The Vite dev server proxies `/api` to Express, so the frontend and the API are
-same-origin in development.
-
-### Verifying the checks the way CI would
-
-Optional, and independent of the database:
-
-```bash
-npm run typecheck
-npm run lint
-npm test
-npm run test:integration
-```
-
-## Layout
-
-```
-frontend/      React (Vite) + TypeScript + Tailwind
-backend/       Express + TypeScript
-shared/        the vocabulary both workspaces speak — types plus a default or two
-sample-data/   the three source .xlsx files
-data/          SQLite file, created on demand, gitignored
-docs/          architecture, cost model, data sources, conventions
-```
-
-## Scripts
-
-Run from the repo root.
-
-| Script                     | What it does                               |
-| -------------------------- | ------------------------------------------ |
-| `npm run dev`              | Backend and frontend together              |
-| `npm run build`            | Type-checks and builds both workspaces     |
-| `npm run typecheck`        | `tsc --noEmit` across all workspaces       |
-| `npm run lint`             | ESLint across both app workspaces          |
-| `npm run format`           | Prettier, writes                           |
-| `npm run format:check`     | Prettier, verifies                         |
-| `npm test`                 | Unit tests in both workspaces              |
-| `npm run test:integration` | Backend API integration tests              |
-| `npm run seed`             | Ingests `sample-data/` into SQLite         |
-| `npm run seed -- --fresh`  | Empties every table first, then ingests    |
-| `npm run selfcheck`        | Enforces the cost reconciliation invariant |
-
-`selfcheck` reads whatever is in the database, so **seed before you check** —
-steps 4 and 5 of [Getting started](#getting-started). It honours your saved
-billable categories but forces overhead to `{}` — overhead is real cost that
-isn't salary, so it legitimately breaks `cost == salaries` and would make the
-check untestable.
-
-Both scripts run through `tsx` without starting Express, and both exit non-zero
-on failure.
-
-## Troubleshooting
-
-**Every page loads but anything touching data fails.** You are on the wrong Node.
-`better-sqlite3` binds its native module lazily, so a mismatch does not stop the
-server booting — it fails one request at a time with `ERR_DLOPEN_FAILED` and a
-`NODE_MODULE_VERSION` stack trace. The server now refuses to start instead:
-
-```
-[api] The database driver could not be loaded. This is Node 20.20.0, and the
-      project needs Node 22 (see .nvmrc). Run `nvm use`, then start again.
-```
-
-`npm install` refuses too (`engine-strict`). Run `nvm use` first.
+The Vite development server proxies `/api` requests to Express, so the
+frontend and API are same-origin during development.
 
 ## Assumptions
 
@@ -184,7 +62,78 @@ reviewer does not have to find them.
 | **A rejected upload leaves no row in the upload history.**                                                                   | A structurally wrong file throws before any row is read, so it has no row or warning count to report — and recording it would write to the database on a request that promised not to.                                                                         |
 | **`selfcheck` reads the database rather than the spreadsheets.**                                                             | So it reports an empty database instead of passing vacuously. Seed before you check.                                                                                                                                                                           |
 
-## Documentation
+## What I would do next
+
+* Implement the missing **should-have features** and complete the features listed in the **stretch section**.
+* Polish and refine the UI for a more consistent and polished user experience.
+* Integrate **Codex** into the CI/CD pipeline as the final stage for automated code review.
+
+## Notes
+
+### Verifying the checks the way CI would
+
+Optional, and independent of the database:
+
+```bash
+npm run typecheck
+npm run lint
+npm test
+npm run test:integration
+```
+
+### Layout
+
+```
+frontend/      React (Vite) + TypeScript + Tailwind
+backend/       Express + TypeScript
+shared/        the vocabulary both workspaces speak — types plus a default or two
+sample-data/   the three source .xlsx files
+data/          SQLite file, created on demand, gitignored
+docs/          architecture, cost model, data sources, conventions
+```
+
+### Scripts
+
+Run from the repo root.
+
+| Script                     | What it does                               |
+| -------------------------- | ------------------------------------------ |
+| `npm run dev`              | Backend and frontend together              |
+| `npm run build`            | Type-checks and builds both workspaces     |
+| `npm run typecheck`        | `tsc --noEmit` across all workspaces       |
+| `npm run lint`             | ESLint across both app workspaces          |
+| `npm run format`           | Prettier, writes                           |
+| `npm run format:check`     | Prettier, verifies                         |
+| `npm test`                 | Unit tests in both workspaces              |
+| `npm run test:integration` | Backend API integration tests              |
+| `npm run seed`             | Ingests `sample-data/` into SQLite         |
+| `npm run seed -- --fresh`  | Empties every table first, then ingests    |
+| `npm run selfcheck`        | Enforces the cost reconciliation invariant |
+
+`selfcheck` reads whatever is in the database, so **seed before you check** —
+steps 4 and 5 of [Getting started](#getting-started). It honours your saved
+billable categories but forces overhead to `{}` — overhead is real cost that
+isn't salary, so it legitimately breaks `cost == salaries` and would make the
+check untestable.
+
+Both scripts run through `tsx` without starting Express, and both exit non-zero
+on failure.
+
+### Troubleshooting
+
+**Every page loads but anything touching data fails.** You are on the wrong Node.
+`better-sqlite3` binds its native module lazily, so a mismatch does not stop the
+server booting — it fails one request at a time with `ERR_DLOPEN_FAILED` and a
+`NODE_MODULE_VERSION` stack trace. The server now refuses to start instead:
+
+```
+[api] The database driver could not be loaded. This is Node 20.20.0, and the
+      project needs Node 22 (see .nvmrc). Run `nvm use`, then start again.
+```
+
+`npm install` refuses too (`engine-strict`). Run `nvm use` first.
+
+### Documentation
 
 See [`AGENTS.md`](AGENTS.md) and [`docs/`](docs) — in particular
 [`docs/cost-model.md`](docs/cost-model.md), which is the single source of truth
