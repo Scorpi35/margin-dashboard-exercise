@@ -21,6 +21,23 @@ import Database from 'better-sqlite3';
  */
 const DEFAULT_DATABASE_PATH = join(__dirname, '../../../data/app.db');
 
+/** Matches `.nvmrc` and the `engines` field. `better-sqlite3` ships no Node 20 prebuild. */
+const REQUIRED_NODE_MAJOR = 22;
+
+/**
+ * The database could not be opened at all — as opposed to a query failing.
+ *
+ * Its own class so the error handler can show the message rather than replacing
+ * it with "Something went wrong": these messages are ones we wrote, and they say
+ * what to do next.
+ */
+export class DatabaseUnavailableError extends Error {
+  constructor(message: string) {
+    super(message);
+    this.name = 'DatabaseUnavailableError';
+  }
+}
+
 const SCHEMA = `
   -- One row per person, per task, per month. The primary key is the natural grain
   -- of the timesheet; re-upload deletes by month rather than relying on it.
@@ -145,7 +162,12 @@ function open(filePath: string): Database.Database {
     mkdirSync(dirname(filePath), { recursive: true });
   }
 
-  const db = new Database(filePath);
+  let db: Database.Database;
+  try {
+    db = new Database(filePath);
+  } catch (err) {
+    throw describeOpenFailure(err);
+  }
 
   // WAL lets a read run while a write is in flight — the dashboard stays
   // responsive during an ingest.
@@ -154,4 +176,28 @@ function open(filePath: string): Database.Database {
   db.exec(SCHEMA);
 
   return db;
+}
+
+/**
+ * Turns a native-module load failure into something a reader can act on.
+ *
+ * `better-sqlite3` binds its compiled `.node` lazily, on the first `new
+ * Database()` rather than at import — so a Node version mismatch does not stop
+ * the server booting. It starts, serves anything that avoids the database, and
+ * fails every request that touches one with `ERR_DLOPEN_FAILED` and a stack
+ * trace about `NODE_MODULE_VERSION`. The cause is almost always the wrong Node.
+ */
+function describeOpenFailure(err: unknown): Error {
+  const isBindingFailure =
+    err instanceof Error && 'code' in err && err.code === 'ERR_DLOPEN_FAILED';
+  if (!isBindingFailure) return err instanceof Error ? err : new Error(String(err));
+
+  const major = Number(process.versions.node.split('.')[0]);
+  const fix =
+    major < REQUIRED_NODE_MAJOR
+      ? `This is Node ${process.versions.node}, and the project needs Node ${REQUIRED_NODE_MAJOR} ` +
+        '(see .nvmrc). Run `nvm use`, then start again.'
+      : 'Run `npm rebuild better-sqlite3` to rebuild it for this version of Node.';
+
+  return new DatabaseUnavailableError(`The database driver could not be loaded. ${fix}`);
 }

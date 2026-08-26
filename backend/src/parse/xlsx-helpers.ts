@@ -65,8 +65,10 @@ export function loadWorkbook(buffer: Buffer): XLSX.WorkBook {
     // `parse/dates.ts` already knows how to resolve.
     workbook = XLSX.read(buffer, { type: 'buffer' });
   } catch (err) {
-    const detail = err instanceof Error ? err.message : String(err);
-    throw new Error(`Could not read the file as a spreadsheet: ${detail}`);
+    // SheetJS's own message names its internals and means nothing to whoever is
+    // holding the spreadsheet. Logged for us, not shown to them.
+    console.error('[error] SheetJS could not read the buffer', err);
+    throw new Error('Could not read the file as a spreadsheet: the file appears to be damaged.');
   }
 
   if (workbook.SheetNames.length === 0) {

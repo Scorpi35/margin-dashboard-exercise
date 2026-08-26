@@ -21,6 +21,7 @@ import { join } from 'node:path';
 import type { ParseWarning } from '@shared/types';
 
 import { closeDb, resetDb } from '../src/lib/db';
+import { requireDatabase } from './require-database';
 import { parseProjects } from '../src/parse/projects';
 import { parseSalary } from '../src/parse/salary';
 import { parseTimesheet } from '../src/parse/timesheet';
@@ -32,6 +33,8 @@ import {
   readSalaries,
   readTimesheet,
 } from '../src/services/ingest.service';
+
+requireDatabase();
 
 const SAMPLE_DATA = join(__dirname, '../../sample-data');
 const read = (file: string): Buffer => readFileSync(join(SAMPLE_DATA, file));
