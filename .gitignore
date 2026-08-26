@@ -1,0 +1,22 @@
+node_modules/
+dist/
+build/
+coverage/
+
+# SQLite database — created on demand by the app, never committed
+data/
+*.sqlite
+*.sqlite-wal
+*.sqlite-shm
+
+# Local agent tooling config; holds a GitHub token
+.mcp.json
+
+.env
+.env.*
+!.env.example
+
+.DS_Store
+*.log
+npm-debug.log*
+.vite/
