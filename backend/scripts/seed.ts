@@ -2,9 +2,14 @@
  * Seeds the SQLite database from the committed `sample-data/` spreadsheets, so a
  * clean checkout has something to look at in one command.
  *
- * The database is emptied first: a re-seed is a clean slate, not an upsert over
- * whatever happened to be there. Expected output is documented in
- * `docs/data-sources.md` — 562 / 144 / 11 rows and no warnings.
+ * Expected output is documented in `docs/data-sources.md` — 562 / 144 / 11 rows
+ * and no warnings. Runs through `tsx` without starting Express.
+ *
+ * By default this is an ordinary ingest, so it follows the same re-upload rules
+ * an upload through the UI would: each file replaces exactly the months it
+ * contains, and prices upsert by ref code. Running it twice therefore leaves the
+ * same row counts. Pass `--fresh` to empty every table first, which is what you
+ * want after experimenting with uploads of your own.
  *
  * Exits non-zero if a parser reports a warning, because on this data a warning
  * means a parser started skipping rows it used to read.
@@ -35,19 +40,22 @@ const TIMESHEET_FILE = 'timesheet-2025.xlsx';
 const SALARY_FILE = 'salaries-2025.xlsx';
 const PROJECTS_FILE = 'project-prices-2025.xlsx';
 
+const fresh = process.argv.includes('--fresh');
+
 const timesheet = parseTimesheet(read(TIMESHEET_FILE), TIMESHEET_FILE);
 const salaries = parseSalary(read(SALARY_FILE), SALARY_FILE);
 const projects = parseProjects(read(PROJECTS_FILE), PROJECTS_FILE);
 
-resetDb();
+if (fresh) resetDb();
+
 ingestTimesheet(timesheet, TIMESHEET_FILE);
 ingestSalaries(salaries, SALARY_FILE);
 ingestProjects(projects, PROJECTS_FILE);
 
-console.log('seed complete\n');
-console.log(`  timesheet_entries  ${String(readTimesheet().length).padStart(4)}`);
-console.log(`  salaries           ${String(readSalaries().length).padStart(4)}`);
-console.log(`  projects           ${String(readProjects().length).padStart(4)}`);
+console.log(`seed complete${fresh ? ' (--fresh: every table was emptied first)' : ''}\n`);
+console.log(`  timesheet_entries  ${String(readTimesheet().length).padStart(4)} rows`);
+console.log(`  salaries           ${String(readSalaries().length).padStart(4)} rows`);
+console.log(`  projects           ${String(readProjects().length).padStart(4)} rows`);
 
 const warnings: ParseWarning[] = [
   ...timesheet.warnings,

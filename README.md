@@ -31,7 +31,7 @@ same-origin in development.
 ```
 frontend/      React (Vite) + TypeScript + Tailwind
 backend/       Express + TypeScript
-shared/        types shared by both workspaces — no runtime code
+shared/        the vocabulary both workspaces speak — types plus a default or two
 sample-data/   the three source .xlsx files
 data/          SQLite file, created on demand, gitignored
 docs/          architecture, cost model, data sources, conventions
@@ -52,10 +52,26 @@ Run from the repo root.
 | `npm test`                 | Unit tests in both workspaces              |
 | `npm run test:integration` | Backend API integration tests              |
 | `npm run seed`             | Ingests `sample-data/` into SQLite         |
+| `npm run seed -- --fresh`  | Empties every table first, then ingests    |
 | `npm run selfcheck`        | Enforces the cost reconciliation invariant |
 
-`seed` and `selfcheck` are wired up but not yet implemented — they exit
-non-zero until the parsers and the calculation engine land.
+`selfcheck` reads whatever is in the database, so **seed before you check**:
+
+```bash
+npm run seed
+npm run selfcheck
+```
+
+It honours your saved billable categories but forces overhead to `{}` — overhead
+is real cost that isn't salary, so it legitimately breaks `cost == salaries` and
+would make the check untestable. Expect:
+
+```
+2025: total salaries = 2400000.00 | total computed cost = 2400000.00 | PASS
+```
+
+Both scripts run through `tsx` without starting Express, and both exit non-zero
+on failure.
 
 ## Documentation
 

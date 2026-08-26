@@ -143,3 +143,30 @@ MD-1 pinned Node 22 because `better-sqlite3` 12.x ships no Node 20 prebuild. MD-
 is the first issue that actually loads the native module, and under Node 20 it
 fails at import with `NODE_MODULE_VERSION 127 ... requires 115`. Run `nvm use`
 before `npm run seed`, `npm test` or `npm run dev`.
+
+## 2026-08-26 — MD-8: seed and self-check scripts
+
+`npm run seed` gained `--fresh`, and `npm run selfcheck` now reconciles what is
+in the database rather than re-parsing `sample-data/`.
+
+- **`selfcheck` reads the database, so CI has to seed first.** The previous
+  version parsed the spreadsheets directly and was self-sufficient, but it could
+  never observe an empty database — and reporting one is the point of the
+  "run seed first" path. `docs/coding-guidelines.md` now lists `seed` before
+  `selfcheck` in the CI order.
+- **"Total computed cost" is the bucket sum, not `salaries + overhead`.**
+  `totalCost` is _defined_ as salaries plus overhead, so printing it beside total
+  salaries would compare a number with itself. The right-hand side is derived
+  through the model instead — every billable hour at its own direct rate, plus
+  the pool — which is the figure that moves if double-counting creeps in.
+- **Seeding no longer resets by default.** It runs as an ordinary ingest, which
+  exercises the same month-scoped replace an upload through the UI would. Two
+  runs still leave identical row counts; `--fresh` empties every table first.
+- **The root `seed` script needed a trailing `--` to forward arguments.**
+  `npm run seed -- --fresh` expands to `npm run seed --workspace backend --fresh`,
+  where npm consumes `--fresh` as its own config flag and the script never sees
+  it. `"seed": "npm run seed --workspace backend --"` passes it through.
+- The FAIL branch cannot be reached from data — the invariant holds by
+  construction, which is the whole point — so it was verified by temporarily
+  scaling `nonBillableCost` by 0.99 and confirming the drift is reported
+  (`total computed cost = 2390907.43 | FAIL`, exit 1) before reverting.
