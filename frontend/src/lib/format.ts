@@ -91,21 +91,27 @@ export function formatPeriod(year: number | null, month: number | null): string 
 }
 
 /**
- * A ratio as a CSS width for an inline bar, clamped to 0–100%.
+ * A value as a CSS width for an inline bar, clamped to 0–100%.
  *
  * Lives here beside `formatPct` because it is the same domain conversion — a
- * rate becoming a percentage — and a component should not be doing that itself.
- * The clamp is presentation: it keeps the drawing inside its cell without
- * touching the figure printed beside it, so a value outside 0–1 stays visible as
- * a wrong number rather than being quietly corrected.
+ * number becoming a percentage — and a component should not be doing that
+ * itself. The clamp is presentation: it keeps the drawing inside its cell
+ * without touching the figure printed beside it, so a value outside the range
+ * stays visible as a wrong number rather than being quietly corrected.
+ *
+ * `max` is what a full bar represents. It defaults to `1`, so a ratio can be
+ * passed straight in; pass the largest row to scale a column of bars against
+ * each other instead of against 100%.
  *
  * Rounded to one decimal so the markup reads as `82.7%` rather than
  * `82.69999999999999%`.
  */
-export function formatBarWidth(share: number | null | undefined): string {
-  if (share === null || share === undefined || !Number.isFinite(share)) return '0%';
+export function formatBarWidth(value: number | null | undefined, max = 1): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return '0%';
+  // A zero or unusable maximum has no scale to draw against.
+  if (!Number.isFinite(max) || max <= 0) return '0%';
 
-  const percent = Math.min(100, Math.max(0, share * 100));
+  const percent = Math.min(100, Math.max(0, (value / max) * 100));
 
   return `${percent.toFixed(1)}%`;
 }

@@ -1,6 +1,7 @@
 import type {
   ApiResponse,
   AppMeta,
+  CategoryBreakdown,
   HealthStatus,
   PeriodSummary,
   ProductivityRow,
@@ -146,4 +147,9 @@ export function getProject(refCode: string): Promise<ProjectFinancials> {
 /** `GET /api/productivity` — billable share of each person's time, most billable first. */
 export function getProductivity(year: number, month: number | null): Promise<ProductivityRow[]> {
   return apiGet<ProductivityRow[]>(`/productivity?${periodQuery(year, month)}`);
+}
+
+/** `GET /api/categories` — hours per category, largest first, with the totals. */
+export function getCategories(year: number, month: number | null): Promise<CategoryBreakdown> {
+  return apiGet<CategoryBreakdown>(`/categories?${periodQuery(year, month)}`);
 }

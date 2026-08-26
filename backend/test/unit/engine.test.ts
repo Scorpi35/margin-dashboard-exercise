@@ -424,15 +424,36 @@ describe('computeCategoryBreakdown', () => {
       settings: settings(),
     });
 
-    expect(computeCategoryBreakdown(model, YEAR)).toEqual([
-      { category: 'Meetings', billable: false, hours: 30, hoursPct: 0.5 },
-      { category: 'Tentwenty', billable: false, hours: 20, hoursPct: 1 / 3 },
-      { category: 'Projects', billable: true, hours: 10, hoursPct: 1 / 6 },
-    ]);
+    expect(computeCategoryBreakdown(model, YEAR)).toEqual({
+      rows: [
+        { category: 'Meetings', isBillable: false, hours: 30, hoursPct: 0.5 },
+        { category: 'Tentwenty', isBillable: false, hours: 20, hoursPct: 1 / 3 },
+        { category: 'Projects', isBillable: true, hours: 10, hoursPct: 1 / 6 },
+      ],
+      totalHours: 60,
+      billableHours: 10,
+      nonBillableHours: 50,
+    });
   });
 
   it('is empty rather than dividing by zero when nothing was logged', () => {
-    expect(computeCategoryBreakdown(input(), YEAR)).toEqual([]);
+    expect(computeCategoryBreakdown(input(), YEAR)).toEqual({
+      rows: [],
+      totalHours: 0,
+      billableHours: 0,
+      nonBillableHours: 0,
+    });
+  });
+
+  it('splits the totals the same way the dashboard does', () => {
+    // Same figures from the same place, so the two pages cannot disagree.
+    const model = twoMonths();
+    const breakdown = computeCategoryBreakdown(model, YEAR);
+    const summary = computePeriodSummary(model, YEAR);
+
+    expect(breakdown.totalHours).toBeCloseTo(summary.totalHours, 4);
+    expect(breakdown.billableHours).toBeCloseTo(summary.billableHours, 4);
+    expect(breakdown.nonBillableHours).toBeCloseTo(summary.nonBillableHours, 4);
   });
 });
 
@@ -576,6 +597,6 @@ describe('ALL_TIME', () => {
 
   it('aggregates productivity and categories across years too', () => {
     expect(computeProductivity(twoYears(), ALL_TIME)[0].totalHours).toBe(200);
-    expect(computeCategoryBreakdown(twoYears(), ALL_TIME)[0].hours).toBe(200);
+    expect(computeCategoryBreakdown(twoYears(), ALL_TIME).rows[0].hours).toBe(200);
   });
 });

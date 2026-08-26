@@ -574,3 +574,58 @@ A note for anyone asserting on inline styles: **jsdom normalises CSS values**, s
 `width: 83.0%` reads back as `83%`. The rounding is covered directly in
 `format.test.ts`; in the DOM it is proved by `82.7%`, which survives
 normalisation because it has a significant decimal.
+
+## 2026-08-26 — MD-14: category page
+
+`GET /api/categories?year&month` behind a table of hours per category, with a bar
+per row and a summary line.
+
+Decisions worth knowing about:
+
+- **The response is an envelope, not `CategoryRow[]` as the issue specified.**
+  The page shows a summary of total / billable / internal hours, and
+  `docs/coding-guidelines.md` is explicit that a number missing from a response is
+  added to the response rather than derived on the client. Summing hours in a
+  component would have broken that, so `computeCategoryBreakdown` returns
+  `{ rows, totalHours, billableHours, nonBillableHours }`. It also makes the first
+  acceptance criterion — category hours summing to the period total — checkable
+  server-side, and an integration test asserts those totals equal the dashboard's.
+- **`CategoryRow.billable` became `isBillable`.** The issue names it that, and
+  `EmployeeMonthCost.isSupportStaff` had already set the `is` prefix as the
+  convention for a boolean on engine output.
+- **Bars scale against the largest category rather than against 100%.** Projects
+  is 63% of the year; against a full-width scale everything else collapses into a
+  sliver, and comparing categories is the point of the page. `formatBarWidth`
+  gained an optional maximum, so productivity keeps its 0–1 scale and this passes
+  the tallest row.
+- **Billable is printed as a word as well as drawn in the accent colour.** Colour
+  alone would leave the distinction invisible in print or to anyone who cannot
+  separate the two fills.
+
+The sample's longest category name is `"FC - SEO/Marketing"` at 18 characters, so
+_"long category names don't break the layout"_ cannot be demonstrated by the real
+data. It is handled structurally — a truncating cell with the full name on
+`title`, inside a scrolling container — and tested with a 65-character synthetic
+name rather than claimed on the strength of data that never exercises it.
+
+### Review follow-up on MD-14
+
+- **The empty state is keyed on total hours, not on the row count.** A period
+  whose rows all sit at zero was rendering a table of zeroes with em-dash shares,
+  while a period with no rows rendered prose — two presentations of the same
+  fact. Both now read "No hours were logged in this period".
+- **The bar scale uses `reduce` rather than spreading into `Math.max`.** The
+  spread was safe only because the early return above it caught the empty case;
+  `reduce` carries its own zero.
+- **`billableHours` is derived twice and now says so.** `PeriodSummary` sums it
+  per employee-month and `CategoryBreakdown` per category — the same rows and the
+  same set, so they agree, and three tests pin them together. Both call sites now
+  point at each other, so a change to how billability is applied cannot be made in
+  one place while looking complete.
+- The README assumptions gained the categories envelope and the bar scaling.
+
+**A recurring pattern worth deciding on:** five reviews running have flagged a
+judgement call as missing from the README assumptions while it was already
+recorded here. Either the entries should be written in both places as a matter of
+course, or `docs/review.md` should accept this log as the home for them and say
+so. Right now the rule and the habit disagree.

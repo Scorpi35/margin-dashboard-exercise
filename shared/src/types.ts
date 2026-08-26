@@ -339,10 +339,25 @@ export interface ProductivityRow {
 export interface CategoryRow {
   readonly category: string;
   /** Resolved against `Settings.billableCategories`, never from a name prefix. */
-  readonly billable: boolean;
+  readonly isBillable: boolean;
   readonly hours: number;
   /** Share of hours in the period. `null` when nothing was logged. */
   readonly hoursPct: number | null;
+}
+
+/**
+ * Payload of `GET /api/categories` — the rows and the totals they add up to.
+ *
+ * The totals travel with the rows rather than being summed on the client: a page
+ * that adds up hours is deriving a figure the engine already owns, and the two
+ * would eventually disagree.
+ */
+export interface CategoryBreakdown {
+  /** Largest first. */
+  readonly rows: readonly CategoryRow[];
+  readonly totalHours: number;
+  readonly billableHours: number;
+  readonly nonBillableHours: number;
 }
 
 /* -------------------------------------------------------------------------- */
