@@ -48,6 +48,7 @@ beforeEach(() => {
   load.mockReset();
   meta.mockResolvedValue({
     years: [2024, 2025],
+    months: ['2024-12', '2025-01'],
     categories: [],
     settings: { billableCategories: [], monthlyOverhead: {} },
   } as AppMeta);
@@ -77,6 +78,7 @@ describe('resolving the period', () => {
   it('asks for nothing when the database is empty', async () => {
     meta.mockResolvedValue({
       years: [],
+      months: [],
       categories: [],
       settings: { billableCategories: [], monthlyOverhead: {} },
     } as AppMeta);

@@ -450,6 +450,14 @@ export interface AppMeta {
   readonly years: readonly number[];
   /** Every category the timesheet has ever contained, sorted. */
   readonly categories: readonly string[];
+  /**
+   * Every `YYYY-MM` that has data, ascending.
+   *
+   * `years` cannot stand in for this: the settings page offers one overhead row
+   * per month that exists, and a year says nothing about which of its months
+   * were actually logged.
+   */
+  readonly months: readonly YearMonthKey[];
   readonly settings: Settings;
 }
 

@@ -89,6 +89,7 @@ beforeEach(() => {
   projects.mockReset();
   meta.mockResolvedValue({
     years: [2025],
+    months: ['2025-01'],
     categories: [],
     settings: { billableCategories: [], monthlyOverhead: {} },
   } as AppMeta);
@@ -204,6 +205,7 @@ describe('with no data at all', () => {
   it('points at the upload page', async () => {
     meta.mockResolvedValue({
       years: [],
+      months: [],
       categories: [],
       settings: { billableCategories: [], monthlyOverhead: {} },
     } as AppMeta);

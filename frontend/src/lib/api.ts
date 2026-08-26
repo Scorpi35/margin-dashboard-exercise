@@ -8,6 +8,7 @@ import type {
   PeriodSummary,
   ProductivityRow,
   ProjectFinancials,
+  Settings,
   UploadHistoryEntry,
   UploadResult,
   UploadType,
@@ -55,6 +56,16 @@ async function unwrap<T>(response: Response): Promise<T> {
 async function apiGet<T>(path: string): Promise<T> {
   return unwrap<T>(
     await fetch(`${API_BASE_URL}${path}`, { headers: { Accept: 'application/json' } }),
+  );
+}
+
+async function apiPut<T>(path: string, body: unknown): Promise<T> {
+  return unwrap<T>(
+    await fetch(`${API_BASE_URL}${path}`, {
+      method: 'PUT',
+      headers: { Accept: 'application/json', 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    }),
   );
 }
 
@@ -154,6 +165,28 @@ export function getProductivity(year: number, month: number | null): Promise<Pro
 /** `GET /api/categories` — hours per category, largest first, with the totals. */
 export function getCategories(year: number, month: number | null): Promise<CategoryBreakdown> {
   return apiGet<CategoryBreakdown>(`/categories?${periodQuery(year, month)}`);
+}
+
+/**
+ * `GET /api/settings` — the billable categories and the overhead per month.
+ *
+ * No caller: the settings page reads them from `GET /api/meta`, which carries
+ * them alongside the categories and months the same form needs, in one request.
+ * Kept because the endpoint exists and its client belongs here rather than being
+ * written from scratch by whoever needs settings without the rest of the meta.
+ */
+export function getSettings(): Promise<Settings> {
+  return apiGet<Settings>('/settings');
+}
+
+/**
+ * `PUT /api/settings` — replaces both settings and answers with what was stored.
+ *
+ * A whole document rather than a patch: unchecking a category *is* leaving it out
+ * of the list, so there is no way to express the change as a partial update.
+ */
+export function saveSettings(settings: Settings): Promise<Settings> {
+  return apiPut<Settings>('/settings', settings);
 }
 
 /** `GET /api/departments` — hours and cost per department, costliest first. */

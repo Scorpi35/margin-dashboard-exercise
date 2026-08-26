@@ -67,6 +67,7 @@ beforeEach(() => {
   meta.mockReset();
   meta.mockResolvedValue({
     years: [2024, 2025],
+    months: ['2024-12', '2025-01'],
     categories: [],
     settings: { billableCategories: [], monthlyOverhead: {} },
   } as AppMeta);

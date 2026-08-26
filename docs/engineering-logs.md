@@ -783,3 +783,51 @@ Zero profitability is coloured as positive, matching `ProjectsTable`'s existing
 `amountClass`. That helper is now duplicated in both tables verbatim; the review
 flagged it, and it belongs in `lib/format.ts` beside `formatBarWidth` — left as
 its own change rather than folded into this one.
+
+## 2026-08-26 — MD-17: configurable assumptions
+
+`GET`/`PUT /api/settings` and a real Settings page behind them, replacing the
+placeholder. Half the work was already done: `settings.service.ts` has stored
+both values since MD-7 and the engine has consumed them since MD-6, so this issue
+is the way in rather than new arithmetic. Nothing in `calc/` changed.
+
+Worth knowing about:
+
+- **`AppMeta` gained `months`.** The overhead table needs one row per month that
+  exists, and `years` cannot answer that — a year says nothing about which of its
+  months were logged. `readAvailableMonths()` sits beside `readAvailableYears()`
+  and consults both tables for the same reason: a month with salaries but no
+  hours still has cost in it.
+- **Overhead crosses the wire as numbers, never as strings.** `Number("12,000")`
+  is `NaN`, and a `NaN` in the indirect pool turns every figure on the dashboard
+  into one — an outcome that still renders, which is what makes it dangerous. The
+  client parses what was typed; the API rejects anything that is not a finite
+  non-negative number with a 400 naming the month.
+- **A malformed JSON body is now a 400.** `PUT /api/settings` is the first
+  endpoint in the repo with a JSON body, and `express.json()` throws before any
+  controller runs, so the hand-rolled validation never got the chance to speak.
+  Left as the generic 500 it read as "try again", which is the one thing that
+  cannot help. Duck-typed on body-parser's `entity.parse.failed` so a syntax
+  error of our own stays a 500.
+- **Unchecking every category is allowed and explained rather than blocked.** The
+  engine already guards it — `indirectRate` is `0`, not `Infinity`, when a month
+  has no billable hours — and the invariant survives, because the pool still
+  carries the whole payroll. A rule the model does not need would be a rule to
+  maintain. The page says what the state does instead: every hour internal, no
+  project costed, the projects list empty.
+- **A billable category with no hours logged keeps its checkbox.** The selection
+  is a stored setting and the names are `SELECT DISTINCT category FROM
+timesheet_entries`, so the two part company as soon as a partial timesheet is
+  uploaded — and the defaults name three categories on a database that has none
+  of them. Review caught the first version rebuilding the selection from the
+  timesheet's list alone, which silently dropped an unlogged billable category on
+  the next click of any other box: upload January only (it has no Enhancements or
+  Hosting hours), tick one box, and two categories the reader never saw are gone
+  from the cost model.
+
+The integration test goes past round-tripping to the figures themselves —
+unchecking Hosting moves its 644.2 hours to internal and drops `H2025060c` from
+the projects list; 100,000 against `2025-01` raises exactly that month's cost by
+exactly 100,000 while February stays at zero; clearing it returns total cost to
+total salaries at 2,400,000. A settings page that saved without moving the
+numbers downstream would pass a round-trip test and none of the issue.

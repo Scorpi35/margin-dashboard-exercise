@@ -120,6 +120,11 @@ GET /api/dashboard?year&month
     │
     ▼
 Controller ──► Service ──► load rows + settings ──► Engine ──► JSON
+
+PUT /api/settings ──► Controller (validates) ──► Settings service ──► SQLite
+    │
+    ▼
+every later request costs at the new assumptions
 ```
 
 Re-upload is transactional and month-scoped: an uploaded file is authoritative for

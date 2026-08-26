@@ -493,6 +493,33 @@ describe('no path produces NaN or Infinity', () => {
     expect(collectNumbers(parsed).every(Number.isFinite)).toBe(true);
     expect(numbers).not.toMatch(/NaN|Infinity/);
   });
+
+  it('survives a settings save that leaves no category billable', () => {
+    // Reachable from the settings page by unchecking everything, which is
+    // allowed: every hour becomes internal and the pool absorbs all of payroll.
+    const model = { ...twoMonths(), settings: { billableCategories: [], monthlyOverhead: {} } };
+
+    const summary = computePeriodSummary(model, YEAR);
+    const numbers = JSON.stringify({
+      summary,
+      projects: computeProjectFinancials(model, YEAR),
+      productivity: computeProductivity(model, YEAR),
+      categories: computeCategoryBreakdown(model, YEAR),
+    });
+
+    expect(collectNumbers(JSON.parse(numbers) as unknown).every(Number.isFinite)).toBe(true);
+    expect(numbers).not.toMatch(/NaN|Infinity/);
+
+    // `pool / 0` is the trap: an indirect rate of Infinity would make every cost
+    // downstream of it NaN. The pool still counts, so payroll still reconciles.
+    expect(summary.billableHours).toBe(0);
+    expect(summary.months.every((month) => month.indirectRate === 0)).toBe(true);
+    expect(summary.totalCost).toBeCloseTo(summary.totalSalaries, 2);
+    expect(summary.totalCost).toBeCloseTo(30_000, 2);
+    // Nothing is billable, so nothing is costed to a project.
+    expect(computeProjectFinancials(model, YEAR)).toEqual([]);
+    expect(summary.productivityPct).toBe(0);
+  });
 });
 
 function collectNumbers(value: unknown): number[] {

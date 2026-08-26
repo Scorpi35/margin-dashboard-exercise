@@ -1,5 +1,5 @@
-import type { MonthNumber, UploadType } from '@shared/types';
-import { MAX_DATA_YEAR, MIN_DATA_YEAR } from '@shared/types';
+import type { MonthNumber, UploadType, YearMonthKey } from '@shared/types';
+import { MAX_DATA_YEAR, MIN_DATA_YEAR, YEAR_MONTH_KEY_PATTERN } from '@shared/types';
 
 import { HttpError } from '../middleware/errorHandler';
 
@@ -109,6 +109,71 @@ export function requireUploadType(value: unknown): UploadType {
   }
 
   return type;
+}
+
+/**
+ * The billable category list from a settings save.
+ *
+ * Names come from the timesheet rather than a fixed list, so the only checks
+ * worth making are structural: an array of non-empty strings, trimmed and
+ * de-duplicated so the same category cannot be stored twice and shown back as
+ * one checkbox.
+ *
+ * An empty list is deliberately valid — it means every hour is internal, which
+ * the engine handles (`indirectRate` guards a zero billable-hours month) and the
+ * settings page explains rather than prevents.
+ *
+ * @throws `HttpError(400)` when the value is not an array of usable names.
+ */
+export function requireBillableCategories(value: unknown): string[] {
+  if (!Array.isArray(value)) {
+    throw new HttpError(400, 'The "billableCategories" field must be an array of category names.');
+  }
+
+  const names = value.map((entry) => (typeof entry === 'string' ? entry.trim() : ''));
+  if (names.some((name) => name === '' || name.length > MAX_NAME_LENGTH)) {
+    throw new HttpError(400, 'Every billable category must be a non-empty name.');
+  }
+
+  return [...new Set(names)];
+}
+
+/**
+ * The overhead map from a settings save: `YYYY-MM` keys, non-negative numbers.
+ *
+ * Numbers only — a string such as `"12,000"` is rejected rather than coerced.
+ * The client converts what was typed before sending, so a string arriving here
+ * means the client is wrong, and `Number("12,000")` is `NaN`, which would enter
+ * the indirect pool and turn every figure on the dashboard into `NaN`.
+ *
+ * An unrecognised key is rejected for the same reason: the engine looks overhead
+ * up by month key, so `"2025-13"` would be stored, reported back as saved, and
+ * never applied to anything.
+ *
+ * @throws `HttpError(400)` when the map, a key, or an amount is unusable.
+ */
+export function requireMonthlyOverhead(value: unknown): Record<YearMonthKey, number> {
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) {
+    throw new HttpError(400, 'The "monthlyOverhead" field must be an object keyed by "YYYY-MM".');
+  }
+
+  const overhead: Record<YearMonthKey, number> = {};
+
+  for (const [key, amount] of Object.entries(value)) {
+    if (!YEAR_MONTH_KEY_PATTERN.test(key)) {
+      throw new HttpError(400, `"${key}" is not a month. Overhead is keyed by month as "YYYY-MM".`);
+    }
+    if (typeof amount !== 'number' || !Number.isFinite(amount)) {
+      throw new HttpError(400, `The overhead for ${key} must be a number.`);
+    }
+    if (amount < 0) {
+      throw new HttpError(400, `The overhead for ${key} cannot be negative.`);
+    }
+
+    overhead[key] = amount;
+  }
+
+  return overhead;
 }
 
 /** Plain digits only — see `integerOrNull` for why `Number()` is not enough. */
