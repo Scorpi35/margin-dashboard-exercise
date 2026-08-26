@@ -1,0 +1,22 @@
+@import 'tailwindcss';
+
+/* Design tokens. Components reference these, never a raw hex value. */
+:root {
+  --color-surface: #ffffff;
+  --color-surface-muted: #f6f7f9;
+  --color-border: #e3e6ea;
+  --color-text: #14181f;
+  --color-text-muted: #626c7a;
+  --color-positive: #0f7b52;
+  --color-negative: #b3261e;
+}
+
+body {
+  background-color: var(--color-surface-muted);
+  color: var(--color-text);
+}
+
+/* Numeric table columns line up only with tabular figures. */
+.tabular {
+  font-variant-numeric: tabular-nums;
+}
