@@ -4,6 +4,7 @@ import { join } from 'node:path';
 import { describe, expect, it } from 'vitest';
 
 import {
+  ALL_TIME,
   computeCategoryBreakdown,
   computeEmployeeMonthCosts,
   computeMonthCostSummaries,
@@ -11,7 +12,15 @@ import {
   computeProductivity,
   computeProjectFinancials,
 } from '../../src/calc/engine';
-import { bucketTotal, hours, input, salary, settings, twoMonths } from './engine-fixtures';
+import {
+  bucketTotal,
+  hours,
+  input,
+  salary,
+  settings,
+  twoMonths,
+  twoYears,
+} from './engine-fixtures';
 
 const YEAR = { year: 2025, month: null };
 const JANUARY = { year: 2025, month: 1 };
@@ -497,5 +506,76 @@ describe('the engine stays pure', () => {
     const second = computePeriodSummary(twoMonths(), YEAR);
 
     expect(first).toEqual(second);
+  });
+});
+
+describe('ALL_TIME', () => {
+  it('selects every year, which is what a project detail is costed over', () => {
+    const [project] = computeProjectFinancials(twoYears(), ALL_TIME);
+
+    expect(project.totalHours).toBe(200);
+    expect(project.totalCost).toBeCloseTo(30_000, 2);
+    // The whole price is recognised once every hour has been logged.
+    expect(project.revenue).toBeCloseTo(60_000, 2);
+    expect(project.profit).toBeCloseTo(30_000, 2);
+  });
+
+  it('decomposes exactly into the individual years', () => {
+    // The guarantee behind "rates are always derived from the full month": a
+    // filtered view must not recompute anything, only aggregate less.
+    const model = twoYears();
+    const allTime = computeProjectFinancials(model, ALL_TIME)[0];
+
+    const perYear = [2024, 2025].map(
+      (year) => computeProjectFinancials(model, { year, month: null })[0],
+    );
+
+    expect(perYear.reduce((sum, project) => sum + project.totalCost, 0)).toBeCloseTo(
+      allTime.totalCost,
+      2,
+    );
+    expect(perYear.reduce((sum, project) => sum + project.totalHours, 0)).toBe(allTime.totalHours);
+    // Revenue is attributed pro-rata, so the years split the price between them.
+    expect(perYear.map((project) => project.revenue)).toEqual([30_000, 30_000]);
+  });
+
+  it('costs each year at its own rates rather than averaging them', () => {
+    const model = twoYears();
+
+    expect(computeProjectFinancials(model, { year: 2024, month: null })[0].totalCost).toBeCloseTo(
+      10_000,
+      2,
+    );
+    expect(computeProjectFinancials(model, { year: 2025, month: null })[0].totalCost).toBeCloseTo(
+      20_000,
+      2,
+    );
+  });
+
+  it('narrows to a month across every year when only the year is null', () => {
+    const model = twoYears();
+
+    expect(computeProjectFinancials(model, { year: null, month: 1 })[0].totalHours).toBe(200);
+    expect(computeProjectFinancials(model, { year: null, month: 2 })).toEqual([]);
+  });
+
+  it('reports a period summary spanning both years, with a null year', () => {
+    const summary = computePeriodSummary(twoYears(), ALL_TIME);
+
+    expect(summary.year).toBeNull();
+    expect(summary.totalSalaries).toBeCloseTo(30_000, 2);
+    expect(summary.totalCost).toBeCloseTo(summary.totalSalaries, 2);
+    expect(summary.months).toHaveLength(2);
+  });
+
+  it('keeps the invariant across years, not just within one', () => {
+    for (const month of computeMonthCostSummaries(twoYears())) {
+      expect(bucketTotal(month)).toBeCloseTo(month.totalSalaries, 2);
+    }
+  });
+
+  it('aggregates productivity and categories across years too', () => {
+    expect(computeProductivity(twoYears(), ALL_TIME)[0].totalHours).toBe(200);
+    expect(computeCategoryBreakdown(twoYears(), ALL_TIME)[0].hours).toBe(200);
   });
 });

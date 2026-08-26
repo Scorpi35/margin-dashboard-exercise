@@ -77,3 +77,15 @@ export function monthName(month: number | null | undefined): string {
 
   return MONTH_NAMES[month - 1] ?? EM_DASH;
 }
+
+/**
+ * How a selected period reads under a page heading.
+ *
+ * `null` month means the whole year; `null` year means there is no period to
+ * describe yet.
+ */
+export function formatPeriod(year: number | null, month: number | null): string {
+  if (year === null) return EM_DASH;
+
+  return month === null ? `${year} · all months` : `${monthName(month)} ${year}`;
+}

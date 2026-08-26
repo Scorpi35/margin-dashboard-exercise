@@ -126,3 +126,39 @@ export function bucketTotal(month: {
 
   return billableCost + month.indirectPool;
 }
+
+/**
+ * The same person on the same project across two years, at different salaries.
+ *
+ * 2024 — Alice earns 10,000 for 100 billable hours, so her rate is 100 and the
+ * project costs 10,000. Nothing is non-billable and nobody is idle, so the pool
+ * and the indirect rate are both zero.
+ *
+ * 2025 — she earns 20,000 for another 100 hours, a rate of 200, costing 20,000.
+ *
+ * All-time the project has 200 hours and costs 30,000 against a price of 60,000.
+ * Filtering to either year halves the hours and the revenue.
+ */
+export function twoYears(): EngineInput {
+  return input({
+    timesheet: [
+      hours({ year: 2024, month: 1, hours: 100, refCode: 'P1' }),
+      hours({ year: 2025, month: 1, hours: 100, refCode: 'P1' }),
+    ],
+    salaries: [
+      salary({ year: 2024, month: 1, monthlySalary: 10_000 }),
+      salary({ year: 2025, month: 1, monthlySalary: 20_000 }),
+    ],
+    projects: [
+      {
+        refCode: 'P1',
+        projectName: 'Project One',
+        projectPrice: 60_000,
+        salesYear: 2024,
+        salesMonth: 1,
+        category: 'Projects',
+        status: 'completed',
+      },
+    ],
+  });
+}

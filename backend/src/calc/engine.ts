@@ -48,10 +48,14 @@ export interface EngineInput {
 
 /** Which rows get aggregated. Rates are always derived from the whole month regardless. */
 export interface Period {
-  readonly year: number;
+  /** `null` selects every year — what a project's all-time figures are computed over. */
+  readonly year: number | null;
   /** `null` selects the whole year. */
   readonly month: MonthNumber | null;
 }
+
+/** Every row there is, whatever period it falls in. */
+export const ALL_TIME: Period = { year: null, month: null };
 
 /* -------------------------------------------------------------------------- */
 /* Per person, per month                                                       */
@@ -522,7 +526,10 @@ function salaryIndex(salaries: readonly SalaryRow[]): Map<string, number> {
 }
 
 function inPeriod(row: { year: number; month: MonthNumber }, period: Period): boolean {
-  return row.year === period.year && (period.month === null || row.month === period.month);
+  return (
+    (period.year === null || row.year === period.year) &&
+    (period.month === null || row.month === period.month)
+  );
 }
 
 /** Unpriced sorts ahead of the worst loss: a gap is more urgent than a bad margin. */

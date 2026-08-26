@@ -451,3 +451,71 @@ Review findings, all seven addressed:
 - A period with no hours reads "No hours logged in this period" rather than
   "— of hours logged".
 - The README assumptions gained both dashboard decisions.
+
+## 2026-08-26 — MD-12: project page
+
+`GET /api/projects?year&month` and `GET /api/projects/:refCode`, behind a list
+sorted loss-making first and a detail page breaking one project down by
+department and by person.
+
+Decisions worth knowing about:
+
+- **`Period.year` is now nullable, and `ALL_TIME` is a period.** The detail
+  endpoint reports a project over its whole life, and doing that through the same
+  `computeProjectFinancials` rather than a second code path meant teaching
+  `inPeriod` that a `null` year matches every year. Two lines in the engine, plus
+  widening `PeriodSummary.year` to match. Nothing read that field.
+- **The detail ignores any period on the query string.** A price covers the whole
+  engagement, so its margin only means anything against all the work done on it.
+  Narrowing to March would put March's cost beside a pro-rata slice of the price
+  and invite a comparison with the contract value that does not hold.
+- **The back link carries the list's filter.** The detail has no period of its
+  own, so returning would otherwise drop whatever the reader had selected.
+- **Row order comes from the API and is not re-sorted in the component.** Three of
+  the eleven sample projects lose money; that order is part of the answer rather
+  than a display preference.
+- **A ref code with hours but no price sorts above the losses.** A gap is more
+  urgent than a bad margin, and it renders `—` for price, profit and margin while
+  still reporting its very real cost.
+- **A priced project with no logged hours 404s**, because it appears in neither
+  the list nor the detail — both are built from timesheet rows. The sample has
+  none. Consistency between the two beat inventing a zero-hour row for one.
+- **Per-employee profitability is deliberately absent** from the contributor
+  table. The engine computes it; surfacing it is its own issue, and a
+  half-finished column would have been worse than none.
+
+A small UI fix fell out of testing: with no project name the ref code was
+rendered both as the row's heading and as its own sub-line, which reads as a bug.
+It now prints once.
+
+### Review follow-up on MD-12
+
+- **The engine changed with no engine test.** `Period.year` became nullable and
+  `ALL_TIME` appeared, exercised only indirectly through the project integration
+  tests — while `inPeriod` decides which rows every figure in the app is built
+  from. A regression making `year: null` match nothing would have left the detail
+  page silently empty with every existing test green. `engine.test.ts` now has a
+  two-year fixture and seven cases: that all-time decomposes exactly into the
+  individual years, that each year is costed at its own rates rather than an
+  average, that `{ year: null, month: 1 }` selects that month across every year,
+  and that the reconciliation invariant holds across years and not merely within
+  one.
+- **`DashboardPage` and `ProjectsPage` had grown into near-copies.** The parts
+  that matched were the load-meta, resolve-default-year and stale-request
+  machinery, with `periodLabel` and `describe` duplicated verbatim. Two more
+  filtered pages are planned, which would have made four copies to keep in step.
+  That logic now lives in `usePeriodData`, and the surrounding chrome — heading,
+  period label, filter, and the four states each page has to handle — in
+  `PeriodPage`. The two pages went from 195 and 151 lines to 80 and 38, with all
+  102 existing tests passing untouched, which is the evidence the refactor
+  changed nothing. The hook has its own tests, including the out-of-order
+  response case that was previously only implicit.
+- **The detail page defaulted a missing `refCode` to `''`.** Unreachable through
+  routing, but an empty code would have requested `/api/projects/`, which matches
+  the _list_ endpoint and answers with an array — rendered as a project, that is
+  nonsense rather than an error. It now reports not-found explicitly.
+- Smaller: `costByDepartment` is read through `??` so a mismatch with
+  `hoursByDepartment` shows an em dash rather than crashing; `getProject` carries
+  a note on why costing every project to return one is the right trade against a
+  second implementation of the same arithmetic; and the README assumptions gained
+  the all-time and unpriced-project decisions.
