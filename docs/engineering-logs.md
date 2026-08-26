@@ -103,3 +103,43 @@ Decisions worth knowing about:
 - `MonthCostSummary` gained `supportStaffSalaries` and `nonBillableCost`, and
   `ProjectFinancials` gained `hoursByDepartment` and `costByDepartment`. A pool
   that looks wrong is only diagnosable by seeing which component moved.
+
+## 2026-08-26 — MD-7: persistence and ingestion
+
+`backend/src/lib/db.ts` owns the one SQLite connection at `data/app.db`, created
+on demand with WAL and foreign keys on. The schema is a single idempotent script
+rather than a migration framework: every statement is `IF NOT EXISTS`, so opening
+an existing database is a no-op. `npm run seed` now does real work — 562 / 144 /
+11 rows from `sample-data/`, as `docs/data-sources.md` documents.
+
+Decisions worth knowing about:
+
+- **Re-upload is month-scoped for hours and salaries, upsert for prices.** An
+  uploaded timesheet or salary sheet is authoritative for every `(year, month)` it
+  contains and for no others, so those months are deleted and reinserted in one
+  transaction while the rest of the year is left alone. Prices carry no period, so
+  a project missing from a newer price list is deliberately **kept**: deleting it
+  would strip the price from work the timesheet still has hours against, turning a
+  priced project unpriced on the strength of an omission.
+- **`useDatabase(path)` exists so tests and the seed script never reach past
+  `lib/db.ts`.** Swapping the connection's home is the alternative to every test
+  opening its own `better-sqlite3` handle, which would defeat the point of a
+  single owner.
+- **A primary-key collision is rewritten before it reaches the user.** The
+  timesheet PK `(employee_no, year, month, category, ref_code)` is unique across
+  all 562 sample rows, but a future upload with two rows for one entry would raise
+  a bare `SQLITE_CONSTRAINT_PRIMARYKEY`. The transaction rolls back either way;
+  the message now names the offending row so someone can find the line in Excel.
+- **`ingest.service.ts` is the only module where `snake_case` appears.** Column
+  names are mapped both ways at this boundary, so no database spelling reaches the
+  engine, the controllers or the UI.
+- **Corrupt settings fall back to defaults with a logged warning** rather than
+  throwing. A dashboard up on default settings beats a 500 on every page, and the
+  log names the key.
+
+### Node 22 is not optional any more
+
+MD-1 pinned Node 22 because `better-sqlite3` 12.x ships no Node 20 prebuild. MD-7
+is the first issue that actually loads the native module, and under Node 20 it
+fails at import with `NODE_MODULE_VERSION 127 ... requires 115`. Run `nvm use`
+before `npm run seed`, `npm test` or `npm run dev`.
