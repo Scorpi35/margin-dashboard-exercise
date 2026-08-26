@@ -49,7 +49,11 @@ export default function DashboardPage() {
   const selectedYear = year ?? availableYears.at(-1) ?? null;
 
   useEffect(() => {
-    if (year === null && selectedYear !== null) setPeriod(selectedYear, month);
+    // Replace rather than push: the reader did not choose this period, so leaving
+    // it in the history would make Back appear to do nothing.
+    if (year === null && selectedYear !== null) {
+      setPeriod(selectedYear, month, { replace: true });
+    }
   }, [year, month, selectedYear, setPeriod]);
 
   useEffect(() => {
@@ -69,6 +73,9 @@ export default function DashboardPage() {
         setError(describe(err, 'Could not load the dashboard.'));
       });
 
+    // Runs when the period changes as well as on unmount, and that is the point:
+    // bumping the counter is what makes the request above stale, so a slow
+    // response for the previous period cannot land after a newer one.
     return () => {
       latestSummaryRequest.current += 1;
     };
@@ -139,7 +146,11 @@ export default function DashboardPage() {
               <StatCard
                 label="Billable hours"
                 value={formatHours(summary.billableHours)}
-                detail={`${formatPct(summary.productivityPct)} of hours logged`}
+                detail={
+                  summary.productivityPct === null
+                    ? 'No hours logged in this period'
+                    : `${formatPct(summary.productivityPct)} of hours logged`
+                }
               />
               <StatCard label="Non-billable hours" value={formatHours(summary.nonBillableHours)} />
               <StatCard

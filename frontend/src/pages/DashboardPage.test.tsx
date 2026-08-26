@@ -216,6 +216,48 @@ describe('the period filter', () => {
     expect(await screen.findByText('March 2024')).toBeDefined();
   });
 
+  it('keeps a year with no data and says so in the filter', async () => {
+    // Substituting a different year silently would leave the select, the period
+    // label and the figures on screen disagreeing with each other.
+    dashboard.mockResolvedValue(summary({ year: 2019, totalCost: 0, totalRevenue: 0 }));
+
+    renderAt('/?year=2019');
+
+    expect(await screen.findByText('2019 · all months')).toBeDefined();
+    expect(dashboard).toHaveBeenCalledWith(2019, null);
+
+    const select = screen.getByLabelText('Year') as HTMLSelectElement;
+    expect(select.value).toBe('2019');
+    expect([...select.options].map((option) => option.textContent?.trim())).toEqual([
+      '2019 (no data)',
+      '2024',
+      '2025',
+    ]);
+  });
+
+  it('does not mark an available year as empty', async () => {
+    renderAt('/?year=2024');
+
+    await screen.findByText('2024 · all months');
+    const select = screen.getByLabelText('Year') as HTMLSelectElement;
+
+    expect([...select.options].map((option) => option.textContent?.trim())).toEqual([
+      '2024',
+      '2025',
+    ]);
+  });
+
+  it('says so plainly when a period has no hours at all', async () => {
+    dashboard.mockResolvedValue(
+      summary({ totalHours: 0, billableHours: 0, productivityPct: null }),
+    );
+
+    renderAt('/');
+
+    expect(await screen.findByText(/no hours logged in this period/i)).toBeDefined();
+    expect(screen.queryByText(/— of hours logged/)).toBeNull();
+  });
+
   it('falls back to the default rather than filtering on a hand-edited year', async () => {
     // A NaN reaching the filter would render an empty dashboard that looks real.
     renderAt('/?year=banana');
