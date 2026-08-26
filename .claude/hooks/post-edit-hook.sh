@@ -1,8 +1,9 @@
 #!/usr/bin/env bash
 set -uo pipefail
 
-CLIENT_DIR="frontend"
-SERVER_DIR="backend"
+# Every workspace with its own ESLint config and tsconfig. A file outside all of
+# them runs no project toolchain — there is no config at the repo root.
+WORKSPACES=(frontend backend shared)
 
 # Read the hook's JSON payload from stdin once
 INPUT=$(cat)
@@ -25,13 +26,23 @@ esac
  
 echo "🔧 Running post-edit checks on: $FILE_PATH" >&2
 
-# Figure out which sub-project this file belongs to, so we run the right
-# project's toolchain (client's ESLint/tsconfig vs server's).
-PROJECT_DIR="."
-if [[ "$FILE_PATH" == "$CLIENT_DIR"/* || "$FILE_PATH" == ./"$CLIENT_DIR"/* ]]; then
-  PROJECT_DIR="$CLIENT_DIR"
-elif [[ "$FILE_PATH" == "$SERVER_DIR"/* || "$FILE_PATH" == ./"$SERVER_DIR"/* ]]; then
-  PROJECT_DIR="$SERVER_DIR"
+# Figure out which workspace this file belongs to, so we run that project's own
+# ESLint config and tsconfig rather than looking for one at the repo root.
+PROJECT_DIR=""
+for WORKSPACE in "${WORKSPACES[@]}"; do
+  if [[ "$FILE_PATH" == "$WORKSPACE"/* || "$FILE_PATH" == ./"$WORKSPACE"/* ]]; then
+    PROJECT_DIR="$WORKSPACE"
+    break
+  fi
+done
+
+# A source file outside every workspace has no toolchain to run. Formatting still
+# applies, so fall through to Prettier with the linting and type-checking skipped
+# rather than reporting a missing config as a failure.
+SKIP_PROJECT_TOOLS=0
+if [[ -z "$PROJECT_DIR" ]]; then
+  PROJECT_DIR="."
+  SKIP_PROJECT_TOOLS=1
 fi
 
 # npm workspaces hoist dev tooling to the repo root, so a binary is almost never
@@ -67,7 +78,7 @@ fi
 # Run from the sub-project so its own eslint config (and Next's plugin
 # resolution) applies, with a path relative to that directory.
 ESLINT_BIN="$(resolve_bin eslint)"
-if [[ -n "$ESLINT_BIN" ]]; then
+if [[ -n "$ESLINT_BIN" && "$SKIP_PROJECT_TOOLS" -eq 0 ]]; then
   ESLINT_BIN="$(cd "$(dirname "$ESLINT_BIN")" && pwd)/$(basename "$ESLINT_BIN")"
   if ! (cd "$PROJECT_DIR" && "$ESLINT_BIN" --fix "${FILE_PATH#"$PROJECT_DIR"/}") >/tmp/eslint_err.log 2>&1; then
     WARNINGS+="ESLint found issues in $FILE_PATH:
@@ -78,7 +89,7 @@ $(cat /tmp/eslint_err.log)
 fi
 
 # ---- 3. TypeScript: type-check the project (only if it's a TS project) ----
-if [[ -f "$PROJECT_DIR/tsconfig.json" ]]; then
+if [[ -f "$PROJECT_DIR/tsconfig.json" && "$SKIP_PROJECT_TOOLS" -eq 0 ]]; then
   TSC_BIN="$(resolve_bin tsc)"
   if [[ -n "$TSC_BIN" ]]; then
     TSC_BIN="$(cd "$(dirname "$TSC_BIN")" && pwd)/$(basename "$TSC_BIN")"
