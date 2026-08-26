@@ -5,16 +5,17 @@
   "engines": {
     "node": ">=22.12"
   },
-  "main": "./dist/index.js",
-  "types": "./src/index.ts",
+  "main": "./dist/cjs/types.js",
+  "types": "./src/types.ts",
   "exports": {
     ".": {
-      "types": "./src/index.ts",
-      "default": "./dist/index.js"
+      "types": "./src/types.ts",
+      "import": "./dist/esm/types.js",
+      "require": "./dist/cjs/types.js"
     }
   },
   "scripts": {
-    "build": "tsc -p tsconfig.build.json",
+    "build": "tsc -p tsconfig.build.json && tsc -p tsconfig.build.esm.json && node -e \"require('fs').writeFileSync('dist/esm/package.json', '{\\\"type\\\":\\\"module\\\"}')\"",
     "dev": "tsc -p tsconfig.build.json --watch --preserveWatchOutput",
     "prepare": "npm run build",
     "lint": "eslint .",

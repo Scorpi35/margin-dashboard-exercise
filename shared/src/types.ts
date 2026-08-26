@@ -1,5 +1,11 @@
 /**
- * The vocabulary both workspaces speak.
+ * The vocabulary both workspaces speak, and the package entry point.
+ *
+ * Deliberately one module rather than a barrel over one. A re-exporting
+ * `index.ts` compiles to `__exportStar`, which a bundler cannot analyse
+ * statically — the frontend's production build then fails on any *value*
+ * imported through it, while type-only imports keep working because they are
+ * erased. That failure waits until the first runtime export is used.
  *
  * `shared/` imports nothing from `backend/` or `frontend/` — it is the contract,
  * not a utility library. The engine's output types double as the API payloads,
