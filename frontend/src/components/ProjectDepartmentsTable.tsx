@@ -1,16 +1,27 @@
+import { Link } from 'react-router-dom';
+
 import { formatAED, formatHours } from '@/lib/format';
 
-/** Where a project's hours and cost went, by department, largest first. */
+/**
+ * Where one project's hours and cost went, by department, largest first.
+ *
+ * Named for the project rather than "DepartmentBreakdown", which is the
+ * company-wide payload — the two are different scopes and they now appear one
+ * click apart.
+ */
 
-interface DepartmentBreakdownTableProps {
+interface ProjectDepartmentsTableProps {
   readonly hoursByDepartment: Readonly<Record<string, number>>;
   readonly costByDepartment: Readonly<Record<string, number>>;
+  /** Carried onto each link so the drill-down opens on the same period. */
+  readonly search: string;
 }
 
-export default function DepartmentBreakdownTable({
+export default function ProjectDepartmentsTable({
   hoursByDepartment,
   costByDepartment,
-}: DepartmentBreakdownTableProps) {
+  search,
+}: ProjectDepartmentsTableProps) {
   const departments = Object.keys(hoursByDepartment).sort(
     (a, b) => hoursByDepartment[b] - hoursByDepartment[a] || a.localeCompare(b),
   );
@@ -33,15 +44,27 @@ export default function DepartmentBreakdownTable({
             <th scope="col" className="px-4 py-2 text-right font-medium">
               Hours
             </th>
+            {/* Scoped, because the department name links through to a page
+                showing that department's salaries across all work. Both are
+                called cost otherwise, and they differ several-fold. */}
             <th scope="col" className="px-4 py-2 text-right font-medium">
-              Cost
+              Cost on this project
             </th>
           </tr>
         </thead>
         <tbody>
           {departments.map((department) => (
             <tr key={department} className="border-line border-b last:border-b-0">
-              <td className="text-ink px-4 py-2">{department}</td>
+              <td className="max-w-48 truncate px-4 py-2" title={department}>
+                {/* Through to everyone in the department, not just their work
+                    on this project. */}
+                <Link
+                  to={`/departments/${encodeURIComponent(department)}${search}`}
+                  className="text-accent hover:underline"
+                >
+                  {department}
+                </Link>
+              </td>
               <td className="tabular text-ink px-4 py-2 text-right">
                 {formatHours(hoursByDepartment[department])}
               </td>

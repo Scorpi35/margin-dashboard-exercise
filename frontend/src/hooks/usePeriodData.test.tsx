@@ -29,6 +29,7 @@ function Probe() {
       <span data-testid="data">{period.data ?? 'none'}</span>
       <span data-testid="error">{period.error ?? 'none'}</span>
       <span data-testid="years">{period.years.join(',')}</span>
+      <span data-testid="status">{String(period.errorStatus)}</span>
       <button onClick={() => period.setPeriod(2024, 5)}>choose</button>
     </>
   );
@@ -149,5 +150,71 @@ describe('failures', () => {
     await waitFor(() =>
       expect(screen.getByTestId('error').textContent).toBe('The database could not be read.'),
     );
+  });
+});
+
+describe('a resource beyond the period', () => {
+  function KeyedProbe({ resource }: { readonly resource: string }) {
+    const period = usePeriodData(
+      (year, month) => load(year, month).then((value) => `${resource}:${value}`),
+      'Could not load it.',
+      resource,
+    );
+
+    return <span data-testid="data">{period.data ?? 'none'}</span>;
+  }
+
+  it('reloads when the resource changes, not only the period', async () => {
+    // Without the key the fetch watches the period alone, and the previous
+    // resource's data stays on screen under the new name.
+    load.mockResolvedValue('loaded');
+
+    const { rerender } = render(
+      <MemoryRouter initialEntries={['/?year=2025']}>
+        <KeyedProbe resource="design" />
+      </MemoryRouter>,
+    );
+    await waitFor(() => expect(screen.getByTestId('data').textContent).toBe('design:loaded'));
+
+    rerender(
+      <MemoryRouter initialEntries={['/?year=2025']}>
+        <KeyedProbe resource="backend" />
+      </MemoryRouter>,
+    );
+
+    await waitFor(() => expect(screen.getByTestId('data').textContent).toBe('backend:loaded'));
+  });
+});
+
+describe('the status behind a failure', () => {
+  it('reports it when the API said so, so a page can tell 404 from 500', async () => {
+    load.mockRejectedValue(new ApiError(404, 'No such thing.'));
+
+    renderAt('/?year=2025');
+
+    await waitFor(() => expect(screen.getByTestId('status').textContent).toBe('404'));
+  });
+
+  it('is null when the failure did not come from the API', async () => {
+    load.mockRejectedValue(new TypeError('Failed to fetch'));
+
+    renderAt('/?year=2025');
+
+    await waitFor(() => expect(screen.getByTestId('error').textContent).toBe('Could not load it.'));
+    expect(screen.getByTestId('status').textContent).toBe('null');
+  });
+
+  it('clears once a later request succeeds', async () => {
+    load.mockRejectedValueOnce(new ApiError(404, 'No such thing.'));
+    load.mockResolvedValue('recovered');
+
+    const user = userEvent.setup();
+    renderAt('/?year=2025');
+    await waitFor(() => expect(screen.getByTestId('status').textContent).toBe('404'));
+
+    await user.click(screen.getByRole('button', { name: 'choose' }));
+
+    await waitFor(() => expect(screen.getByTestId('data').textContent).toBe('recovered'));
+    expect(screen.getByTestId('status').textContent).toBe('null');
   });
 });

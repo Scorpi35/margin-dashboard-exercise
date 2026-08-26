@@ -1,10 +1,13 @@
-import type { PeriodSummary } from '@shared/types';
+import { useSearchParams } from 'react-router-dom';
+
+import type { DepartmentBreakdown, PeriodSummary } from '@shared/types';
 
 import DataGapsBanner from '@/components/DataGapsBanner';
+import DepartmentSummary from '@/components/DepartmentSummary';
 import PeriodPage from '@/components/PeriodPage';
 import StatCard, { type StatTone } from '@/components/StatCard';
 import { usePeriodData } from '@/hooks/usePeriodData';
-import { getDashboard } from '@/lib/api';
+import { getDashboard, getDepartments } from '@/lib/api';
 import { formatAED, formatHours, formatPct } from '@/lib/format';
 
 /**
@@ -15,11 +18,24 @@ import { formatAED, formatHours, formatPct } from '@/lib/format';
  * a number that is not in the response is added to the response, not computed in
  * a component.
  */
+/**
+ * Both payloads for one period. `usePeriodData` keeps the loader in a ref, so a
+ * composed one like this does not refetch on every render.
+ */
+function loadDashboard(
+  year: number,
+  month: number | null,
+): Promise<[PeriodSummary, DepartmentBreakdown]> {
+  return Promise.all([getDashboard(year, month), getDepartments(year, month)]);
+}
+
 export default function DashboardPage() {
-  const period = usePeriodData(getDashboard, 'Could not load the dashboard.');
+  const period = usePeriodData(loadDashboard, 'Could not load the dashboard.');
+  const [searchParams] = useSearchParams();
+  const search = searchParams.toString() === '' ? '' : `?${searchParams.toString()}`;
 
   return (
-    <PeriodPage<PeriodSummary>
+    <PeriodPage<[PeriodSummary, DepartmentBreakdown]>
       title="Dashboard"
       description="Company-wide cost, revenue and margin for the selected period."
       years={period.years}
@@ -30,7 +46,7 @@ export default function DashboardPage() {
       error={period.error}
       data={period.data}
     >
-      {(summary) => (
+      {([summary, departments]) => (
         <>
           <DataGapsBanner
             unpricedRefCodes={summary.unpricedRefCodes}
@@ -66,6 +82,8 @@ export default function DashboardPage() {
               tone={marginTone(summary.marginPct)}
             />
           </div>
+
+          <DepartmentSummary breakdown={departments} search={search} />
         </>
       )}
     </PeriodPage>

@@ -6,12 +6,15 @@ import { describe, expect, it } from 'vitest';
 import {
   ALL_TIME,
   computeCategoryBreakdown,
+  computeDepartmentBreakdown,
   computeEmployeeMonthCosts,
   computeMonthCostSummaries,
   computePeriodSummary,
   computeProductivity,
   computeProjectFinancials,
 } from '../../src/calc/engine';
+import { UNASSIGNED_DEPARTMENT } from '@shared/types';
+
 import {
   bucketTotal,
   hours,
@@ -598,5 +601,137 @@ describe('ALL_TIME', () => {
   it('aggregates productivity and categories across years too', () => {
     expect(computeProductivity(twoYears(), ALL_TIME)[0].totalHours).toBe(200);
     expect(computeCategoryBreakdown(twoYears(), ALL_TIME).rows[0].hours).toBe(200);
+  });
+});
+
+describe('computeDepartmentBreakdown', () => {
+  it('groups people by department, costliest first', () => {
+    const breakdown = computeDepartmentBreakdown(twoMonths(), YEAR);
+
+    expect(breakdown.rows.map((row) => row.department)).toEqual(['Design', 'Backend']);
+    expect(breakdown.rows[0]).toMatchObject({ department: 'Design', headcount: 1, cost: 20_000 });
+    expect(breakdown.rows[1]).toMatchObject({ department: 'Backend', headcount: 1, cost: 10_000 });
+  });
+
+  it('adds up to payroll, because cost here is salary', () => {
+    // Charging each department's hours at directRate + indirectRate would count
+    // the indirect pool twice — it already holds everyone's non-billable time.
+    const model = twoMonths();
+    const breakdown = computeDepartmentBreakdown(model, YEAR);
+    const summary = computePeriodSummary(model, YEAR);
+
+    expect(breakdown.totalCost).toBeCloseTo(summary.totalSalaries, 2);
+    expect(breakdown.rows.reduce((total, row) => total + row.cost, 0)).toBeCloseTo(
+      breakdown.totalCost,
+      2,
+    );
+  });
+
+  it('adds up to the period hours', () => {
+    const model = twoMonths();
+    const breakdown = computeDepartmentBreakdown(model, YEAR);
+    const summary = computePeriodSummary(model, YEAR);
+
+    expect(breakdown.totalHours).toBeCloseTo(summary.totalHours, 4);
+    expect(breakdown.rows.reduce((total, row) => total + row.totalHours, 0)).toBeCloseTo(
+      summary.totalHours,
+      4,
+    );
+  });
+
+  it('does not attribute overhead to any department', () => {
+    // Company-level cost with no basis in the brief for splitting it, so the
+    // departments deliberately fall short of totalCost.
+    const model = twoMonths({ '2025-01': 800 });
+    const breakdown = computeDepartmentBreakdown(model, YEAR);
+    const summary = computePeriodSummary(model, YEAR);
+
+    expect(breakdown.totalCost).toBeCloseTo(summary.totalSalaries, 2);
+    expect(summary.totalCost - breakdown.totalCost).toBeCloseTo(800, 2);
+  });
+
+  it('lists every person in a department with their own hours', () => {
+    const [design] = computeDepartmentBreakdown(twoMonths(), YEAR).rows;
+
+    expect(design.employees).toHaveLength(1);
+    expect(design.employees[0]).toMatchObject({
+      employeeNo: '1',
+      employeeName: 'Alice',
+      totalHours: 100,
+      billableHours: 80,
+      cost: 20_000,
+    });
+    expect(design.employees[0].productivityPct).toBeCloseTo(0.8, 6);
+  });
+
+  it('sums a person across the months they worked', () => {
+    const model = input({
+      timesheet: [hours({ month: 1, hours: 10 }), hours({ month: 2, hours: 30 })],
+      salaries: [salary({ month: 1 }), salary({ month: 2 })],
+    });
+    const [design] = computeDepartmentBreakdown(model, YEAR).rows;
+
+    expect(design.employees[0].totalHours).toBe(40);
+    expect(design.employees[0].cost).toBe(20_000);
+    expect(design.headcount).toBe(1);
+  });
+
+  it('narrows to a month without changing how anyone is grouped', () => {
+    const january = computeDepartmentBreakdown(twoMonths(), JANUARY);
+
+    expect(january.rows.map((row) => row.department)).toEqual(['Design', 'Backend']);
+    expect(january.totalHours).toBe(100);
+    expect(january.totalCost).toBeCloseTo(15_000, 2);
+  });
+
+  it('gives someone with no salary a null cost rather than a silent zero', () => {
+    const model = input({ timesheet: [hours({ hours: 40 })] });
+    const [design] = computeDepartmentBreakdown(model, YEAR).rows;
+
+    expect(design.employees[0].cost).toBeNull();
+    // The department still totals what it actually paid.
+    expect(design.cost).toBe(0);
+  });
+
+  it('keeps a partly-paid person as a number, not null', () => {
+    const model = input({
+      timesheet: [hours({ month: 1 }), hours({ month: 2 })],
+      salaries: [salary({ month: 1, monthlySalary: 9_000 })],
+    });
+    const [design] = computeDepartmentBreakdown(model, YEAR).rows;
+
+    expect(design.employees[0].cost).toBe(9_000);
+  });
+
+  it('buckets someone with no department under Unassigned', () => {
+    // They logged no hours, so no row ever says which department they are in.
+    const model = input({
+      timesheet: [hours({ employeeNo: '1', hours: 10 })],
+      salaries: [salary({ employeeNo: '1' }), salary({ employeeNo: '99', employeeName: 'Ghost' })],
+    });
+    const breakdown = computeDepartmentBreakdown(model, YEAR);
+    const unassigned = breakdown.rows.find((row) => row.department === UNASSIGNED_DEPARTMENT);
+
+    expect(unassigned?.headcount).toBe(1);
+    expect(unassigned?.employees[0].employeeName).toBe('Ghost');
+    expect(unassigned?.totalHours).toBe(0);
+    // Still counted, so the totals keep adding up.
+    expect(breakdown.totalCost).toBe(20_000);
+  });
+
+  it('reports null productivity for a department that logged nothing', () => {
+    const model = input({ salaries: [salary()] });
+    const [row] = computeDepartmentBreakdown(model, YEAR).rows;
+
+    expect(row.totalHours).toBe(0);
+    expect(row.productivityPct).toBeNull();
+  });
+
+  it('is empty when the period holds nothing', () => {
+    expect(computeDepartmentBreakdown(input(), YEAR)).toEqual({
+      rows: [],
+      totalHours: 0,
+      totalCost: 0,
+    });
   });
 });

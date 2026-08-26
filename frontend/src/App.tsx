@@ -4,6 +4,7 @@ import PagePlaceholder from '@/components/PagePlaceholder';
 import SidebarNav from '@/components/SidebarNav';
 import CategoriesPage from '@/pages/CategoriesPage';
 import DashboardPage from '@/pages/DashboardPage';
+import DepartmentDetailPage from '@/pages/DepartmentDetailPage';
 import ProjectDetailPage from '@/pages/ProjectDetailPage';
 import ProductivityPage from '@/pages/ProductivityPage';
 import ProjectsPage from '@/pages/ProjectsPage';
@@ -27,6 +28,7 @@ export default function App() {
           <Route path="/projects/:refCode" element={<ProjectDetailPage />} />
           <Route path="/productivity" element={<ProductivityPage />} />
           <Route path="/categories" element={<CategoriesPage />} />
+          <Route path="/departments/:department" element={<DepartmentDetailPage />} />
           <Route path="/upload" element={<UploadPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route

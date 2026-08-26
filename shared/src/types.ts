@@ -316,6 +316,67 @@ export interface PeriodSummary {
   readonly months: readonly MonthCostSummary[];
 }
 
+/**
+ * A department a person belongs to, when the timesheet never says.
+ *
+ * Someone who logged no hours at all has no department on any row. Bucketing
+ * them under a name keeps the totals adding up and gives them a URL, instead of
+ * an invisible row under an empty string.
+ */
+export const UNASSIGNED_DEPARTMENT = 'Unassigned';
+
+/** One person inside a department, for the period. */
+export interface DepartmentEmployee {
+  readonly employeeNo: string;
+  readonly employeeName: string;
+  readonly designation: string;
+  readonly totalHours: number;
+  readonly billableHours: number;
+  readonly nonBillableHours: number;
+  /** `billableHours ÷ totalHours`. `null` when they logged nothing. */
+  readonly productivityPct: number | null;
+  /**
+   * Salaries paid to them in the period. `null` when no salary row covers them
+   * at all — a silent `0` would read as "this person was free".
+   */
+  readonly cost: number | null;
+}
+
+/** One department's hours and cost for the period. */
+export interface DepartmentRow {
+  readonly department: string;
+  readonly headcount: number;
+  readonly totalHours: number;
+  readonly billableHours: number;
+  readonly nonBillableHours: number;
+  /** `billableHours ÷ totalHours`. `null` when the department logged nothing. */
+  readonly productivityPct: number | null;
+  /**
+   * The salaries of the people in it — not their hours at a loaded rate.
+   *
+   * Loading each department's hours with the indirect rate would charge the
+   * indirect pool twice, because the pool already holds everyone's non-billable
+   * time (`docs/cost-model.md` § The trap). Salaries are the one formulation
+   * that reconciles: the departments add up to payroll exactly.
+   */
+  readonly cost: number;
+  readonly employees: readonly DepartmentEmployee[];
+}
+
+/** Payload of `GET /api/departments` — the rows and the totals they add up to. */
+export interface DepartmentBreakdown {
+  /** Costliest first. */
+  readonly rows: readonly DepartmentRow[];
+  readonly totalHours: number;
+  /**
+   * Total salaries in the period. Overhead is company-level and is deliberately
+   * not attributed to a department — there is no basis in the brief for
+   * splitting it, so `PeriodSummary.totalCost` exceeds this whenever overhead is
+   * set.
+   */
+  readonly totalCost: number;
+}
+
 /** One person's billable-vs-total split for the filtered period. */
 export interface ProductivityRow {
   readonly employeeNo: string;

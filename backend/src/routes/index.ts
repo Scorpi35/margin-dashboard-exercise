@@ -2,6 +2,7 @@ import { Router } from 'express';
 
 import { categoryRouter } from './category.routes';
 import { dashboardRouter } from './dashboard.routes';
+import { departmentRouter } from './department.routes';
 import { healthRouter } from './health.routes';
 import { metaRouter } from './meta.routes';
 import { productivityRouter } from './productivity.routes';
@@ -12,6 +13,7 @@ export const apiRouter = Router();
 
 apiRouter.use('/categories', categoryRouter);
 apiRouter.use('/dashboard', dashboardRouter);
+apiRouter.use('/departments', departmentRouter);
 apiRouter.use('/health', healthRouter);
 apiRouter.use('/meta', metaRouter);
 apiRouter.use('/productivity', productivityRouter);

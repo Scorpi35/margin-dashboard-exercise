@@ -1,5 +1,8 @@
 import type {
   CategoryBreakdown,
+  DepartmentBreakdown,
+  DepartmentEmployee,
+  DepartmentRow,
   EmployeeMonthCost,
   EmployeeProjectContribution,
   MissingSalaryEmployee,
@@ -13,7 +16,7 @@ import type {
   Settings,
   TimesheetRow,
 } from '@shared/types';
-import { YEAR_MONTH_KEY_PATTERN } from '@shared/types';
+import { UNASSIGNED_DEPARTMENT, YEAR_MONTH_KEY_PATTERN } from '@shared/types';
 
 import { yearMonthKey } from '../parse/dates';
 
@@ -366,6 +369,80 @@ export function computePeriodSummary(input: EngineInput, period: Period): Period
 /* -------------------------------------------------------------------------- */
 /* Aggregations                                                                */
 /* -------------------------------------------------------------------------- */
+
+/**
+ * Hours and cost per department, costliest first, each with the people in it.
+ *
+ * Cost here is salary, not hours at a loaded rate. Charging a department's hours
+ * at `directRate + indirectRate` would count the indirect pool a second time —
+ * the pool already holds the value of everyone's non-billable time — and the
+ * departments would overshoot payroll by exactly the pool. Salaries reconcile:
+ * every dirham is paid to exactly one person in exactly one department.
+ *
+ * Overhead is not attributed. It is a company-level cost with no basis in the
+ * brief for splitting it, so these rows sum to salaries rather than to
+ * `PeriodSummary.totalCost`.
+ */
+export function computeDepartmentBreakdown(input: CostInput, period: Period): DepartmentBreakdown {
+  const employeeMonths = computeEmployeeMonthCosts(input).filter((cost) => inPeriod(cost, period));
+  const designations = designationsByEmployee(input.timesheet);
+
+  // Two levels of grouping: department, then person within it.
+  const departments = new Map<string, Map<string, DepartmentEmployee>>();
+
+  for (const month of employeeMonths) {
+    const department = month.department === '' ? UNASSIGNED_DEPARTMENT : month.department;
+    const people = departments.get(department) ?? new Map<string, DepartmentEmployee>();
+    const previous = people.get(month.employeeNo);
+
+    const totalHours = (previous?.totalHours ?? 0) + month.totalHours;
+    const billableHours = (previous?.billableHours ?? 0) + month.billableHours;
+    // `null` only while no month has paid them anything; one paid month makes it
+    // a number, so a partly-covered person is not reported as costing nothing.
+    const cost =
+      month.salary === null ? (previous?.cost ?? null) : (previous?.cost ?? 0) + month.salary;
+
+    people.set(month.employeeNo, {
+      employeeNo: month.employeeNo,
+      employeeName: month.employeeName,
+      designation: designations.get(month.employeeNo) ?? '',
+      totalHours,
+      billableHours,
+      nonBillableHours: (previous?.nonBillableHours ?? 0) + month.nonBillableHours,
+      productivityPct: totalHours === 0 ? null : billableHours / totalHours,
+      cost,
+    });
+
+    departments.set(department, people);
+  }
+
+  const rows: DepartmentRow[] = [...departments.entries()].map(([department, people]) => {
+    const employees = [...people.values()].sort(
+      (a, b) => b.totalHours - a.totalHours || a.employeeName.localeCompare(b.employeeName),
+    );
+    const totalHours = sum(employees, (employee) => employee.totalHours);
+    const billableHours = sum(employees, (employee) => employee.billableHours);
+
+    return {
+      department,
+      headcount: employees.length,
+      totalHours,
+      billableHours,
+      nonBillableHours: sum(employees, (employee) => employee.nonBillableHours),
+      productivityPct: totalHours === 0 ? null : billableHours / totalHours,
+      cost: sum(employees, (employee) => employee.cost ?? 0),
+      employees,
+    };
+  });
+
+  rows.sort((a, b) => b.cost - a.cost || a.department.localeCompare(b.department));
+
+  return {
+    rows,
+    totalHours: sum(rows, (row) => row.totalHours),
+    totalCost: sum(rows, (row) => row.cost),
+  };
+}
 
 /** Billable share of each person's logged time over the period. */
 export function computeProductivity(input: CostInput, period: Period): ProductivityRow[] {

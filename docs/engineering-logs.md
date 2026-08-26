@@ -629,3 +629,74 @@ judgement call as missing from the README assumptions while it was already
 recorded here. Either the entries should be written in both places as a matter of
 course, or `docs/review.md` should accept this log as the home for them and say
 so. Right now the rule and the habit disagree.
+
+## 2026-08-26 — MD-15: department drill-down
+
+`computeDepartmentBreakdown` in the engine, `GET /api/departments` and
+`/api/departments/:department` behind it, a detail page at
+`/departments/:department`, and two ways in — the department rows on a project's
+detail page, and a new summary on the dashboard.
+
+**A department's cost is salary, and that is the whole design decision.** The
+obvious framing — charge each department's hours at `directRate + indirectRate` —
+double-counts, because the indirect pool already holds the value of everyone's
+non-billable time. Measured on the sample it overstates the company by
+AED 909,257.32, which is exactly the pool:
+
+```
+Σ salaries          2,400,000.00   reconciles to payroll
+Σ "fully loaded"    3,309,257.32   over by 909,257.32 = the indirect pool
+```
+
+Salaries are the one formulation that reconciles: every dirham is paid to exactly
+one person in exactly one department. The trade is that overhead has no home —
+it is company-level, the brief gives no basis for splitting it, and inventing an
+allocation would put a number on screen nobody could defend. So the rows add up
+to total salaries, and both the dashboard summary and the detail page say so in
+words rather than leaving the reader to notice the shortfall.
+
+Other decisions worth knowing about:
+
+- **Per-employee cost is `number | null`.** `null` when no salary row covers them
+  in the period; a silent `0` would read as "this person was free". One paid
+  month makes it a number, so a partly-covered person is not reported as costing
+  nothing.
+- **Someone who logged no hours has no department**, since only timesheet rows
+  carry one. They are bucketed under `UNASSIGNED_DEPARTMENT` so the totals still
+  add up and they still have a URL. The sample has no such case — all twelve log
+  hours — so it is covered by a fixture rather than claimed on real data.
+- **The dashboard loads two payloads through one `Promise.all` loader.**
+  `usePeriodData` keeps the loader in a ref, so a composed one does not refetch
+  on every render — that was the reason for the ref when the hook was extracted.
+
+Department names come from a spreadsheet column and are not guaranteed to be
+URL-safe. Verified end to end against the running server with
+`R&D / Special Projects` — `%2F` is the case that breaks a router splitting on
+the raw path, and both Express and React Router decode it correctly.
+
+### Review follow-up on MD-15
+
+- **`/departments/Design` with no `?year=` sat on "Loading…" forever.** It was the
+  only page reading the period straight from the URL rather than through
+  `usePeriodData`, so with no year it returned early and never resolved — no
+  error, no default, no way out but the back link. A test asserted the request
+  was not made and stopped there, which is exactly how it got past: it checked
+  the call, not what the reader sees.
+- **`usePeriodData` gained a resource key.** Its fetch watches the period, so a
+  page keyed on something else — a department name — would keep the previous
+  one's figures after navigating. The key joins the effect's dependencies, and
+  data is cleared on change so stale rows cannot be read as the new resource's.
+- **It also reports `errorStatus`.** The department page needs to tell a 404 from
+  a 500 to choose between "not found" and "something broke", and unwrapping an
+  `ApiError` in every page is the wrong place for that.
+- **Two different "department cost" figures sat one click apart.** The project
+  detail page's Cost column is that department's hours on _that project_, fully
+  loaded; the drill-down shows its salaries across _all_ work. On the sample,
+  Design reads AED 175,113.89 on Q2025001a and AED 633,000.00 company-wide — a
+  3.6× jump with nothing on screen reconciling them. The source column is now
+  "Cost on this project" and the destination card says "Across all work, not one
+  project."
+- `DepartmentBreakdownTable` became `ProjectDepartmentsTable`, since
+  `DepartmentBreakdown` is the company-wide payload and the two are different
+  scopes. `getDepartment` carries the same note as `getProject` about recomputing
+  everything to answer for one.

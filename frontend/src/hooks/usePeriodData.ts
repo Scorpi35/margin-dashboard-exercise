@@ -27,16 +27,30 @@ export interface PeriodData<T> {
   /** `null` while the current period's data is in flight. */
   readonly data: T | null;
   readonly error: string | null;
+  /**
+   * The HTTP status behind `error`, when the failure came from the API.
+   *
+   * Lets a page tell "this thing does not exist" apart from "the server broke",
+   * without every page having to unwrap an `ApiError` itself.
+   */
+  readonly errorStatus: number | null;
 }
 
 export function usePeriodData<T>(
   load: (year: number, month: MonthNumber | null) => Promise<T>,
   errorFallback: string,
+  /**
+   * Anything besides the period that identifies what is being loaded — a
+   * department name, say. Without it a page that changes only its resource keeps
+   * showing the previous one's data, because the fetch watches the period alone.
+   */
+  resourceKey?: string,
 ): PeriodData<T> {
   const { year, month, setPeriod } = usePeriodFilter();
   const [meta, setMeta] = useState<AppMeta | null>(null);
   const [data, setData] = useState<T | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [errorStatus, setErrorStatus] = useState<number | null>(null);
 
   // Held in a ref so the fetch effect depends only on the period. A caller that
   // passes an inline arrow would otherwise refetch on every render.
@@ -53,7 +67,9 @@ export function usePeriodData<T>(
         if (!cancelled) setMeta(loaded);
       })
       .catch((err: unknown) => {
-        if (!cancelled) setError(describe(err, 'Could not load the filters.'));
+        if (cancelled) return;
+        setError(describe(err, 'Could not load the filters.'));
+        setErrorStatus(statusOf(err));
       });
 
     return () => {
@@ -77,6 +93,8 @@ export function usePeriodData<T>(
 
     const requestId = latestRequest.current + 1;
     latestRequest.current = requestId;
+    // Drop the previous resource's data so it cannot be read as this one's.
+    setData(null);
 
     loadRef
       .current(selectedYear, month)
@@ -84,10 +102,12 @@ export function usePeriodData<T>(
         if (latestRequest.current !== requestId) return;
         setData(loaded);
         setError(null);
+        setErrorStatus(null);
       })
       .catch((err: unknown) => {
         if (latestRequest.current !== requestId) return;
         setError(describe(err, errorFallback));
+        setErrorStatus(statusOf(err));
       });
 
     // Runs when the period changes as well as on unmount, and that is the point:
@@ -96,17 +116,30 @@ export function usePeriodData<T>(
     return () => {
       latestRequest.current += 1;
     };
-  }, [selectedYear, month, errorFallback]);
+  }, [selectedYear, month, errorFallback, resourceKey]);
 
   const choosePeriod = useCallback(
     (nextYear: number, nextMonth: MonthNumber | null) => setPeriod(nextYear, nextMonth),
     [setPeriod],
   );
 
-  return { meta, years, year: selectedYear, month, setPeriod: choosePeriod, data, error };
+  return {
+    meta,
+    years,
+    year: selectedYear,
+    month,
+    setPeriod: choosePeriod,
+    data,
+    error,
+    errorStatus,
+  };
 }
 
 /** An ApiError carries a message written for a reader; anything else does not. */
 function describe(err: unknown, fallback: string): string {
   return err instanceof ApiError ? err.message : fallback;
+}
+
+function statusOf(err: unknown): number | null {
+  return err instanceof ApiError ? err.statusCode : null;
 }
