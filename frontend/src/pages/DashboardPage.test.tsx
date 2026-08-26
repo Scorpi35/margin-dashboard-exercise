@@ -21,6 +21,7 @@ const departments = vi.mocked(getDepartments);
 function appMeta(overrides: Partial<AppMeta> = {}): AppMeta {
   return {
     years: [2024, 2025],
+    months: ['2024-12', '2025-01'],
     categories: ['Projects', 'FC - Meetings'],
     settings: { billableCategories: ['Projects'], monthlyOverhead: {} },
     ...overrides,
@@ -106,7 +107,7 @@ beforeEach(() => {
 
 describe('with no data at all', () => {
   it('points at the upload page instead of showing zeroes', async () => {
-    meta.mockResolvedValue(appMeta({ years: [], categories: [] }));
+    meta.mockResolvedValue(appMeta({ years: [], months: [], categories: [] }));
 
     renderAt('/');
 

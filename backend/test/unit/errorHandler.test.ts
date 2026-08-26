@@ -18,12 +18,38 @@ function respond(err: unknown) {
   return { status: status.mock.calls[0]?.[0] as number, body: json.mock.calls[0]?.[0] };
 }
 
+/** What `express.json()` throws on a body it cannot parse. */
+function bodyParseError(): Error {
+  return Object.assign(new SyntaxError('Unexpected token } in JSON at position 1'), {
+    type: 'entity.parse.failed',
+    status: 400,
+  });
+}
+
 /** What better-sqlite3 throws: an Error carrying a `SQLITE_*` code. */
 function sqliteError(code: string): Error {
   return Object.assign(new Error('unable to open database file'), { code });
 }
 
 describe('errorHandler', () => {
+  it('answers a body it could not parse with a 400, not a 500', () => {
+    // A 500 says "try again", and the body will not parse on the second attempt
+    // either. The validation helpers never see it — express.json throws first.
+    const { status, body } = respond(bodyParseError());
+
+    expect(status).toBe(400);
+    expect(body.status).toBe('error');
+    expect(body.message).toMatch(/could not be read as JSON/i);
+  });
+
+  it('leaves a SyntaxError of our own as a 500', () => {
+    // Only body-parser's own marker downgrades the status; a syntax error thrown
+    // inside our code is still our fault.
+    const { status } = respond(new SyntaxError('someone wrote bad code'));
+
+    expect(status).toBe(500);
+  });
+
   it('passes an HttpError through with its own status and message', () => {
     const { status, body } = respond(new HttpError(400, 'The "year" parameter is required.'));
 

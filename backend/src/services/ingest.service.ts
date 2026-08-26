@@ -1,5 +1,6 @@
 import type {
   ExpenseType,
+  MonthNumber,
   ParseResult,
   ParseWarning,
   ProjectRow,
@@ -246,6 +247,26 @@ export function readAvailableYears(): number[] {
     .all() as { year: number }[];
 
   return rows.map((row) => Number(row.year));
+}
+
+/**
+ * Every `YYYY-MM` that has data, ascending.
+ *
+ * The month-level counterpart to {@link readAvailableYears}, and consulted the
+ * same way for the same reason: a month with salaries but no hours still has
+ * cost in it, and the settings page has to be able to put overhead against it.
+ */
+export function readAvailableMonths(): YearMonthKey[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT DISTINCT year, month FROM timesheet_entries
+       UNION
+       SELECT DISTINCT year, month FROM salaries
+       ORDER BY year, month`,
+    )
+    .all() as { year: number; month: MonthNumber }[];
+
+  return rows.map((row) => yearMonthKey(Number(row.year), row.month));
 }
 
 export function readTimesheet(): TimesheetRow[] {

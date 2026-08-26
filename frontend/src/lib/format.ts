@@ -91,6 +91,21 @@ export function formatPeriod(year: number | null, month: number | null): string 
 }
 
 /**
+ * A `YYYY-MM` key as a month a reader recognises: `"2025-07"` → `"July 2025"`.
+ *
+ * Anything that is not a month key is an em dash rather than a guess — the key
+ * comes from the API, so a malformed one is a fault worth seeing.
+ */
+export function formatMonthKey(key: string): string {
+  const match = /^(\d{4})-(\d{2})$/.exec(key.trim());
+  if (match === null) return EM_DASH;
+
+  const month = monthName(Number(match[2]));
+
+  return month === EM_DASH ? EM_DASH : `${month} ${match[1]}`;
+}
+
+/**
  * A value as a CSS width for an inline bar, clamped to 0–100%.
  *
  * Lives here beside `formatPct` because it is the same domain conversion — a

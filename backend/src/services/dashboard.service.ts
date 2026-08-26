@@ -2,7 +2,13 @@ import type { AppMeta, PeriodSummary } from '@shared/types';
 
 import type { Period } from '../calc/engine';
 import { computePeriodSummary } from '../calc/engine';
-import { readAvailableYears, readProjects, readSalaries, readTimesheet } from './ingest.service';
+import {
+  readAvailableMonths,
+  readAvailableYears,
+  readProjects,
+  readSalaries,
+  readTimesheet,
+} from './ingest.service';
 import { getAllKnownCategories, getSettings } from './settings.service';
 
 /**
@@ -34,6 +40,7 @@ export function getPeriodSummary(period: Period): PeriodSummary {
 export function getAppMeta(): AppMeta {
   return {
     years: readAvailableYears(),
+    months: readAvailableMonths(),
     categories: getAllKnownCategories(),
     settings: getSettings(),
   };

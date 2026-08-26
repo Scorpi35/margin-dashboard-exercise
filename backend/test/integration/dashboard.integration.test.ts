@@ -150,6 +150,7 @@ describe('GET /api/meta', () => {
     const response = await request(createApp()).get('/api/meta').expect(200);
 
     expect(response.body.data.years).toEqual([]);
+    expect(response.body.data.months).toEqual([]);
     expect(response.body.data.categories).toEqual([]);
     expect(response.body.data.settings).toEqual({
       billableCategories: ['Projects', 'Enhancements', 'Hosting'],
@@ -166,6 +167,15 @@ describe('GET /api/meta', () => {
     expect(response.body.data.categories).toContain('Tentwenty');
   });
 
+  it('lists every month that has data, so overhead can be entered against it', async () => {
+    seed();
+    const response = await request(createApp()).get('/api/meta').expect(200);
+
+    expect(response.body.data.months).toHaveLength(12);
+    expect(response.body.data.months[0]).toBe('2025-01');
+    expect(response.body.data.months.at(-1)).toBe('2025-12');
+  });
+
   it('offers a year that has salaries but no logged hours', async () => {
     // That year still has cost in it; leaving it out would hide the cost.
     ingestSalaries(
@@ -179,5 +189,6 @@ describe('GET /api/meta', () => {
     const response = await request(createApp()).get('/api/meta').expect(200);
 
     expect(response.body.data.years).toEqual([2024]);
+    expect(response.body.data.months).toEqual(['2024-01']);
   });
 });
