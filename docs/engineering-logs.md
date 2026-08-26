@@ -746,3 +746,40 @@ TypeScript honour the `exports` conditions on `@shared/types` rather than fallin
 back to `main`, which is tidier — but it changes module-detection semantics and
 would need `module` moved in step. `node10` preserves today's behaviour exactly,
 which is what a deprecation rename should do. Worth doing on its own another day.
+
+## 2026-08-26 — MD-16: per-employee profitability
+
+A Profitability column on the project detail page's contribution table, coloured
+by sign. No engine, service, controller or type change: `contributions` in
+`calc/engine.ts` has computed `revenueShare` and `profitability` since MD-6 and
+both have been on the wire ever since. MD-12 shipped the table with hours and
+cost only and said in a comment that surfacing the rest was its own issue; this
+is that issue, so the work is presentation plus the hardening the issue asked
+for.
+
+Worth knowing about:
+
+- **The hand-verification is against the spreadsheet, not against the engine.**
+  Rohit Menon on Q2025001a: `560,000 × 520.9 ÷ 3,025.2 = 96,424.6992` of the
+  price, and `(96,424.6992 − 67,222.4559) ÷ 96,424.6992 = 0.302850`. A test that
+  recomputes the engine's formula from the engine's own output only proves the
+  two fields agree with each other — useful, and kept alongside, but it is not
+  the same claim.
+- **An unpriced project reads as an em dash on every row.** `formatPct(null)`
+  already returns one, so the column needed no null branch of its own — but the
+  case is pinned by a frontend test asserting the cells are `—` and that `0.0%`
+  appears nowhere, and by an integration test asserting `profitability` is
+  `null` for every contributor on a ref code with hours and no price. A
+  break-even 0% is a different fact from having no revenue to share out.
+- **Revenue shares are asserted to sum back to the price**, in both the unit and
+  the integration tests. That is what makes the column trustworthy: ten
+  percentages that do not add up to the project's own margin would be worse than
+  no column.
+- **Row order is untouched** — hours-descending, as the API returns it. Sorting
+  by profitability would put the smallest contributors at both ends, since a few
+  hours priced against a few hours of cost swings hardest.
+
+Zero profitability is coloured as positive, matching `ProjectsTable`'s existing
+`amountClass`. That helper is now duplicated in both tables verbatim; the review
+flagged it, and it belongs in `lib/format.ts` beside `formatBarWidth` — left as
+its own change rather than folded into this one.
