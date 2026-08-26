@@ -3,6 +3,7 @@ import type {
   AppMeta,
   HealthStatus,
   PeriodSummary,
+  ProductivityRow,
   ProjectFinancials,
   UploadHistoryEntry,
   UploadResult,
@@ -75,6 +76,20 @@ async function apiPostFile<T>(path: string, field: string, file: File): Promise<
 }
 
 /**
+ * The query string for a period.
+ *
+ * A `null` month is omitted rather than sent empty, so the URL reads as "the
+ * whole year" instead of a month someone forgot to fill in. Stated once here
+ * because every filtered endpoint needs the same rule.
+ */
+function periodQuery(year: number, month: number | null): string {
+  const query = new URLSearchParams({ year: String(year) });
+  if (month !== null) query.set('month', String(month));
+
+  return query.toString();
+}
+
+/**
  * `GET /api/health` — whether anything has been ingested yet.
  *
  * No caller yet; the pages that branch on an empty database are still
@@ -105,10 +120,7 @@ export function getUploadHistory(): Promise<UploadHistoryEntry[]> {
  * sent empty, so the URL says what it means.
  */
 export function getDashboard(year: number, month: number | null): Promise<PeriodSummary> {
-  const query = new URLSearchParams({ year: String(year) });
-  if (month !== null) query.set('month', String(month));
-
-  return apiGet<PeriodSummary>(`/dashboard?${query.toString()}`);
+  return apiGet<PeriodSummary>(`/dashboard?${periodQuery(year, month)}`);
 }
 
 /** `GET /api/meta` — the years, categories and settings the filters are built from. */
@@ -118,10 +130,7 @@ export function getMeta(): Promise<AppMeta> {
 
 /** `GET /api/projects` — every project with hours in the period, loss-making first. */
 export function getProjects(year: number, month: number | null): Promise<ProjectFinancials[]> {
-  const query = new URLSearchParams({ year: String(year) });
-  if (month !== null) query.set('month', String(month));
-
-  return apiGet<ProjectFinancials[]>(`/projects?${query.toString()}`);
+  return apiGet<ProjectFinancials[]>(`/projects?${periodQuery(year, month)}`);
 }
 
 /**
@@ -132,4 +141,9 @@ export function getProjects(year: number, month: number | null): Promise<Project
  */
 export function getProject(refCode: string): Promise<ProjectFinancials> {
   return apiGet<ProjectFinancials>(`/projects/${encodeURIComponent(refCode)}`);
+}
+
+/** `GET /api/productivity` — billable share of each person's time, most billable first. */
+export function getProductivity(year: number, month: number | null): Promise<ProductivityRow[]> {
+  return apiGet<ProductivityRow[]>(`/productivity?${periodQuery(year, month)}`);
 }

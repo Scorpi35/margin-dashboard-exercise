@@ -89,3 +89,23 @@ export function formatPeriod(year: number | null, month: number | null): string 
 
   return month === null ? `${year} · all months` : `${monthName(month)} ${year}`;
 }
+
+/**
+ * A ratio as a CSS width for an inline bar, clamped to 0–100%.
+ *
+ * Lives here beside `formatPct` because it is the same domain conversion — a
+ * rate becoming a percentage — and a component should not be doing that itself.
+ * The clamp is presentation: it keeps the drawing inside its cell without
+ * touching the figure printed beside it, so a value outside 0–1 stays visible as
+ * a wrong number rather than being quietly corrected.
+ *
+ * Rounded to one decimal so the markup reads as `82.7%` rather than
+ * `82.69999999999999%`.
+ */
+export function formatBarWidth(share: number | null | undefined): string {
+  if (share === null || share === undefined || !Number.isFinite(share)) return '0%';
+
+  const percent = Math.min(100, Math.max(0, share * 100));
+
+  return `${percent.toFixed(1)}%`;
+}

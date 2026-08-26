@@ -4,8 +4,8 @@ import PagePlaceholder from '@/components/PagePlaceholder';
 import SidebarNav from '@/components/SidebarNav';
 import CategoriesPage from '@/pages/CategoriesPage';
 import DashboardPage from '@/pages/DashboardPage';
-import EmployeesPage from '@/pages/EmployeesPage';
 import ProjectDetailPage from '@/pages/ProjectDetailPage';
+import ProductivityPage from '@/pages/ProductivityPage';
 import ProjectsPage from '@/pages/ProjectsPage';
 import SettingsPage from '@/pages/SettingsPage';
 import UploadPage from '@/pages/UploadPage';
@@ -25,7 +25,7 @@ export default function App() {
           <Route path="/" element={<DashboardPage />} />
           <Route path="/projects" element={<ProjectsPage />} />
           <Route path="/projects/:refCode" element={<ProjectDetailPage />} />
-          <Route path="/employees" element={<EmployeesPage />} />
+          <Route path="/productivity" element={<ProductivityPage />} />
           <Route path="/categories" element={<CategoriesPage />} />
           <Route path="/upload" element={<UploadPage />} />
           <Route path="/settings" element={<SettingsPage />} />

@@ -92,6 +92,7 @@ names from the brief.
   | `--color-negative-soft` | Background wash behind a loss                   |
   | `--color-warning`       | Gaps in the data — missing salary, unpriced ref |
   | `--color-warning-soft`  | Warning banner background                       |
+  | `--color-bar`           | Inline data-bar fill — never a warning          |
 
 - Numeric table columns are right-aligned with tabular figures (`.tabular`). Columns of numbers that don't line up read as amateur.
 

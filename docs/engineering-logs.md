@@ -519,3 +519,58 @@ It now prints once.
   a note on why costing every project to return one is the right trade against a
   second implementation of the same arithmetic; and the README assumptions gained
   the all-time and unpriced-project decisions.
+
+## 2026-08-26 — MD-13: productivity page
+
+`GET /api/productivity?year&month` behind a table of billable share per person,
+with an inline bar.
+
+Decisions worth knowing about:
+
+- **The route is `/productivity`, renamed from `/employees`.** That path was my
+  own guess in MD-9, when the six routes were documented nowhere; the issue names
+  `/productivity`, so the nav label and page file moved with it. Nothing linked to
+  the old path, so no redirect was needed.
+- **`--color-bar` is a new token rather than reuse of `--color-warning`.** Both
+  are amber, but warning means _something is missing_ — a bar showing a healthy
+  83% must not borrow that. Added to the palette table in
+  `docs/coding-guidelines.md`.
+- **The bar is never the only reading of the number.** The percentage sits beside
+  it as text and the bar is `aria-hidden`, so the figure survives printing, a
+  screen reader, or anyone who cannot separate the fill from the track.
+- **The width is clamped in the component even though the engine guards the
+  share.** Presentation should not depend on an invariant it does not own; a
+  share above 1 would otherwise draw outside its cell. The clamp applies to the
+  drawing only — the percentage shown is never clamped, so a wrong number would
+  still be visible rather than quietly corrected.
+- **The page is 30 lines**, because `usePeriodData` and `PeriodPage` from the
+  MD-12 follow-up already handle the filter, the default year, the stale-response
+  guard and the four page states. That extraction paid for itself here.
+
+The two management employees log only internal time, so they sit at a visible 0%
+with an empty bar rather than being filtered out — 812 hours of real work that
+dropping them would hide. An integration test also flips `Tentwenty` to billable
+and asserts the figures move, which is what proves billability comes from
+settings rather than a name prefix.
+
+### Review follow-up on MD-13
+
+- **`CostInput` splits the engine's inputs by what each answer depends on.**
+  Rates, the indirect pool, productivity and the category split are all decided
+  before any project is priced, so those four functions take a type without
+  `projects` and `EngineInput` extends it. `productivity.service.ts` was reading
+  the projects table on every request for a computation that never looked at it —
+  cheap, but it stated a dependency that did not exist. `EngineInput` still
+  satisfies `CostInput` structurally, so no caller changed.
+- **`formatBarWidth` moved the bar's arithmetic out of the component** and into
+  `lib/format.ts` beside `formatPct`, where the same rate-to-percentage
+  conversion already lived. It rounds to one decimal, so the markup carries
+  `82.7%` rather than `82.69999999999999%`.
+- **`periodQuery` states the omit-a-null-month rule once** instead of three
+  times across `getDashboard`, `getProjects` and `getProductivity`. A fourth
+  filtered endpoint arrives with the categories page.
+
+A note for anyone asserting on inline styles: **jsdom normalises CSS values**, so
+`width: 83.0%` reads back as `83%`. The rounding is covered directly in
+`format.test.ts`; in the DOM it is proved by `82.7%`, which survives
+normalisation because it has a significant decimal.
