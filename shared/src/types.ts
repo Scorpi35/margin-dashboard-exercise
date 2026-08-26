@@ -368,3 +368,34 @@ export interface HealthStatus {
 
 /** The three spreadsheets, as they appear in `POST /api/uploads/:type`. */
 export type UploadType = 'timesheet' | 'salary' | 'projects';
+
+/**
+ * Payload of `POST /api/uploads/:type`.
+ *
+ * Only ever returned for an upload that was written. A structurally wrong file is
+ * a `400` carrying a message instead, and leaves the database untouched.
+ */
+export interface UploadResult {
+  readonly type: UploadType;
+  readonly fileName: string;
+  readonly rowsWritten: number;
+  /**
+   * The `YYYY-MM` months this file was authoritative for, and therefore replaced.
+   * Empty for prices, which are keyed by ref code and carry no period.
+   */
+  readonly monthsAffected: readonly YearMonthKey[];
+  /** Rows that were skipped, each with the spreadsheet row a reader can go and fix. */
+  readonly warnings: readonly ParseWarning[];
+}
+
+/** One row of `GET /api/uploads` — the audit trail, newest first. */
+export interface UploadHistoryEntry {
+  readonly id: number;
+  readonly type: UploadType;
+  readonly fileName: string;
+  /** ISO-8601, in UTC. */
+  readonly uploadedAt: string;
+  readonly rowCount: number;
+  readonly warningCount: number;
+  readonly months: readonly YearMonthKey[];
+}

@@ -1,15 +1,23 @@
 import type {
   ExpenseType,
   ParseResult,
+  ParseWarning,
   ProjectRow,
   ProjectStatus,
   SalaryRow,
   TimesheetRow,
+  UploadHistoryEntry,
+  UploadResult,
+  UploadType,
   YearMonthKey,
 } from '@shared/types';
 
 import { yearMonthKey } from '../parse/dates';
+import { parseProjects } from '../parse/projects';
+import { parseSalary } from '../parse/salary';
+import { parseTimesheet } from '../parse/timesheet';
 import { getDb } from '../lib/db';
+import { HttpError } from '../middleware/errorHandler';
 
 /**
  * Reads and writes the parsed spreadsheets.
@@ -24,8 +32,11 @@ export interface IngestSummary {
   readonly rowsWritten: number;
   /** The `YYYY-MM` months this upload was authoritative for, and therefore replaced. */
   readonly monthsReplaced: readonly YearMonthKey[];
-  readonly warningCount: number;
+  readonly warnings: readonly ParseWarning[];
 }
+
+/** The columns the primary keys are built from, in the order a reader scans them. */
+const KEY_FIELDS = ['employeeNo', 'year', 'month', 'category', 'refCode'];
 
 interface PeriodRow {
   readonly year: number;
@@ -35,6 +46,90 @@ interface PeriodRow {
 /* -------------------------------------------------------------------------- */
 /* Writes                                                                      */
 /* -------------------------------------------------------------------------- */
+
+/**
+ * Parses an uploaded spreadsheet and writes it, in that order and all or nothing.
+ *
+ * A structurally wrong file — the salary sheet dropped into the timesheet slot,
+ * say — throws before a single row is read, so there is nothing to roll back. A
+ * file that is the right shape but has bad rows in it succeeds: those rows are
+ * skipped and returned as warnings rather than costing the user the whole upload.
+ *
+ * @throws `HttpError(400)` when the file is not the one it claims to be.
+ */
+export function ingestUpload(type: UploadType, buffer: Buffer, fileName: string): UploadResult {
+  switch (type) {
+    case 'timesheet':
+      return toResult(
+        type,
+        fileName,
+        ingestTimesheet(parse(parseTimesheet, buffer, fileName), fileName),
+      );
+    case 'salary':
+      return toResult(
+        type,
+        fileName,
+        ingestSalaries(parse(parseSalary, buffer, fileName), fileName),
+      );
+    case 'projects':
+      return toResult(
+        type,
+        fileName,
+        ingestProjects(parse(parseProjects, buffer, fileName), fileName),
+      );
+  }
+}
+
+/**
+ * Runs a parser, turning its structural failure into the 400 the caller deserves.
+ *
+ * The parser messages already name what was wrong — a missing sheet lists the
+ * ones the workbook does contain — so they are passed through rather than
+ * replaced with something vaguer.
+ */
+function parse<T>(
+  parser: (buffer: Buffer, fileName: string) => ParseResult<T>,
+  buffer: Buffer,
+  fileName: string,
+): ParseResult<T> {
+  try {
+    return parser(buffer, fileName);
+  } catch (err) {
+    const detail = err instanceof Error ? err.message : String(err);
+    throw new HttpError(400, `${detail} Nothing was saved.`);
+  }
+}
+
+function toResult(type: UploadType, fileName: string, summary: IngestSummary): UploadResult {
+  return {
+    type,
+    fileName,
+    rowsWritten: summary.rowsWritten,
+    monthsAffected: summary.monthsReplaced,
+    warnings: summary.warnings,
+  };
+}
+
+/** The audit trail, newest first. Only uploads that were actually written appear. */
+export function readUploads(): UploadHistoryEntry[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT id, kind, file_name, uploaded_at, row_count, warning_count, months
+       FROM uploads
+       ORDER BY id DESC`,
+    )
+    .all() as Record<string, unknown>[];
+
+  return rows.map((row) => ({
+    id: Number(row.id),
+    type: String(row.kind) as UploadType,
+    fileName: String(row.file_name),
+    uploadedAt: String(row.uploaded_at),
+    rowCount: Number(row.row_count),
+    warningCount: Number(row.warning_count),
+    months: String(row.months) === '' ? [] : String(row.months).split(','),
+  }));
+}
 
 export function ingestTimesheet(
   result: ParseResult<TimesheetRow>,
@@ -107,11 +202,7 @@ export function ingestProjects(result: ParseResult<ProjectRow>, fileName: string
     recordUpload(db, 'projects', fileName, result.rows.length, result.warnings.length, []);
   })();
 
-  return {
-    rowsWritten: result.rows.length,
-    monthsReplaced: [],
-    warningCount: result.warnings.length,
-  };
+  return { rowsWritten: result.rows.length, monthsReplaced: [], warnings: result.warnings };
 }
 
 /* -------------------------------------------------------------------------- */
@@ -251,7 +342,7 @@ function replaceMonths<T extends PeriodRow>(
   return {
     rowsWritten: result.rows.length,
     monthsReplaced: months.map(({ year, month }) => yearMonthKey(year, month)),
-    warningCount: result.warnings.length,
+    warnings: result.warnings,
   };
 }
 
@@ -289,12 +380,21 @@ function duplicateRow(err: unknown, row: PeriodRow): Error {
     err instanceof Error && 'code' in err && String(err.code).startsWith('SQLITE_CONSTRAINT');
   if (!isConflict) return err instanceof Error ? err : new Error(String(err));
 
-  const identity = Object.entries(row)
-    .filter(([key]) => key !== 'hours' && key !== 'monthlySalary')
-    .map(([key, value]) => `${key}=${String(value)}`)
+  // An HttpError so this reaches the user as the 400 it is. A plain Error would
+  // surface as "Something went wrong", discarding the row identity below — which
+  // is the only part of the message worth having.
+
+  // Only the columns that make up the primary key. Listing every field buries the
+  // four that identify the offending row under a wall of nulls.
+  const values = new Map(Object.entries(row));
+  const identity = KEY_FIELDS.filter((field) => values.has(field))
+    .map((field) => `${field}=${String(values.get(field))}`)
     .join(', ');
 
-  return new Error(`The upload has two rows for the same entry (${identity}). Nothing was saved.`);
+  return new HttpError(
+    400,
+    `The upload has two rows for the same entry (${identity}). Nothing was saved.`,
+  );
 }
 
 function nullableText(value: unknown): string | null {

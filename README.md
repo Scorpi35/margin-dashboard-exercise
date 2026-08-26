@@ -73,25 +73,40 @@ would make the check untestable. Expect:
 Both scripts run through `tsx` without starting Express, and both exit non-zero
 on failure.
 
+## Troubleshooting
+
+**Every page loads but anything touching data fails.** You are on the wrong Node.
+`better-sqlite3` binds its native module lazily, so a mismatch does not stop the
+server booting — it fails one request at a time with `ERR_DLOPEN_FAILED` and a
+`NODE_MODULE_VERSION` stack trace. The server now refuses to start instead:
+
+```
+[api] The database driver could not be loaded. This is Node 20.20.0, and the
+      project needs Node 22 (see .nvmrc). Run `nvm use`, then start again.
+```
+
+`npm install` refuses too (`engine-strict`). Run `nvm use` first.
+
 ## Assumptions
 
 The brief leaves some things open. Every judgement call made in response is
 commented at the point it is made in the code; they are collected here so a
 reviewer does not have to find them.
 
-| Decision                                                                                        | Why                                                                                                                                               |
-| ----------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Revenue is attributed pro-rata by hours**, not booked in the sales month.                     | Otherwise a month view shows a month's cost against all of a project's revenue or none of it. Full-year figures are identical either way.         |
-| **Revenue share and project margin divide the period's revenue**, not the whole contract price. | Keeps the per-employee shares adding up to the revenue on the project row. Identical over a full year. See `docs/cost-model.md`.                  |
-| **`isSupportStaff` means zero hours logged**, not "absent from the timesheet".                  | Someone whose rows sum to zero would otherwise have their salary counted in payroll but never enter the pool, breaking the invariant.             |
-| **Overhead is costed for a month even when no rows have been ingested for it.**                 | Overhead is usually entered before the spreadsheets are uploaded; dropping it would silently understate cost.                                     |
-| **A project with a price but no logged hours is absent from the project table.**                | Pro-rata attribution is `0/0` for it. Its revenue is `null` rather than `NaN` if one ever appears.                                                |
-| **An unreadable sales month leaves `salesYear`/`salesMonth` `null`, and the price is kept.**    | The sales month is informational; losing the price over it would be the greater error. `0` is not a month.                                        |
-| **A two-digit year (`January '25`) reads as `20xx`.**                                           | Every sheet the agency keeps is this century. A pivot year would guess a century silently.                                                        |
-| **Excel serials must resolve to 1970–2199.**                                                    | A bare `2025` is a valid serial meaning 1905-07-17. A year carries no month, so accepting it would misfile a whole period.                        |
-| **A timesheet row with no category is kept and flagged, not skipped.**                          | Dropping it would remove real hours and distort the month's rates. Uncategorised time cannot match `billableCategories`, so it stays in the pool. |
-| **Re-uploading a shorter price list keeps the projects it omits.**                              | Deleting them would strip prices from work the timesheet still references, turning a priced project unpriced on the strength of an omission.      |
-| **`selfcheck` reads the database rather than the spreadsheets.**                                | So it reports an empty database instead of passing vacuously. Seed before you check.                                                              |
+| Decision                                                                                        | Why                                                                                                                                                                                    |
+| ----------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Revenue is attributed pro-rata by hours**, not booked in the sales month.                     | Otherwise a month view shows a month's cost against all of a project's revenue or none of it. Full-year figures are identical either way.                                              |
+| **Revenue share and project margin divide the period's revenue**, not the whole contract price. | Keeps the per-employee shares adding up to the revenue on the project row. Identical over a full year. See `docs/cost-model.md`.                                                       |
+| **`isSupportStaff` means zero hours logged**, not "absent from the timesheet".                  | Someone whose rows sum to zero would otherwise have their salary counted in payroll but never enter the pool, breaking the invariant.                                                  |
+| **Overhead is costed for a month even when no rows have been ingested for it.**                 | Overhead is usually entered before the spreadsheets are uploaded; dropping it would silently understate cost.                                                                          |
+| **A project with a price but no logged hours is absent from the project table.**                | Pro-rata attribution is `0/0` for it. Its revenue is `null` rather than `NaN` if one ever appears.                                                                                     |
+| **An unreadable sales month leaves `salesYear`/`salesMonth` `null`, and the price is kept.**    | The sales month is informational; losing the price over it would be the greater error. `0` is not a month.                                                                             |
+| **A two-digit year (`January '25`) reads as `20xx`.**                                           | Every sheet the agency keeps is this century. A pivot year would guess a century silently.                                                                                             |
+| **Excel serials must resolve to 1970–2199.**                                                    | A bare `2025` is a valid serial meaning 1905-07-17. A year carries no month, so accepting it would misfile a whole period.                                                             |
+| **A timesheet row with no category is kept and flagged, not skipped.**                          | Dropping it would remove real hours and distort the month's rates. Uncategorised time cannot match `billableCategories`, so it stays in the pool.                                      |
+| **Re-uploading a shorter price list keeps the projects it omits.**                              | Deleting them would strip prices from work the timesheet still references, turning a priced project unpriced on the strength of an omission.                                           |
+| **A rejected upload leaves no row in the upload history.**                                      | A structurally wrong file throws before any row is read, so it has no row or warning count to report — and recording it would write to the database on a request that promised not to. |
+| **`selfcheck` reads the database rather than the spreadsheets.**                                | So it reports an empty database instead of passing vacuously. Seed before you check.                                                                                                   |
 
 ## Documentation
 

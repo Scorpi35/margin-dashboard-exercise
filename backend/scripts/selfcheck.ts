@@ -24,6 +24,9 @@ import {
 import { closeDb } from '../src/lib/db';
 import { readProjects, readSalaries, readTimesheet } from '../src/services/ingest.service';
 import { getSettings } from '../src/services/settings.service';
+import { requireDatabase } from './require-database';
+
+requireDatabase();
 
 /** Money is compared at two decimals — "to the dirham", not to the float. */
 const dirhams = (value: number): number => Math.round(value * 100) / 100;

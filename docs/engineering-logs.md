@@ -247,3 +247,115 @@ correctness bug and a handful of smaller gaps.
   `getAllKnownCategories` does not decide billability); and `db.test.ts` now
   asserts that no controller, service or route imports `resetDb` — the one
   `DELETE` with no month predicate.
+
+## 2026-08-26 — MD-10: upload
+
+`POST /api/uploads/:type` and `GET /api/uploads`, with a three-slot upload page
+behind them. This is the first issue that puts data into the app through the UI
+rather than through `npm run seed`.
+
+Decisions worth knowing about:
+
+- **`ingestUpload` orchestrates parse-then-ingest inside the service**, not the
+  controller. `docs/coding-guidelines.md` describes the flow as "the buffer goes
+  to a parser; the parser's rows go to the ingest service", which reads like
+  controller work — but controllers are meant to be thin, and keeping it in the
+  service means the whole path is testable without HTTP.
+- **A rejected upload leaves no row in the history.** The acceptance criteria ask
+  for "each attempt with a warning count", but a structurally wrong file throws
+  before a single row is read, so it has no warning count to report — and the
+  other criterion requires that nothing be written. Writing an audit row for a
+  rejected file would put a row in the database on a request that promised none.
+  The user sees the error inline instead.
+- **The extension is checked in three places, deliberately.** The `accept`
+  attribute filters the file picker, the component checks the name so a _dropped_
+  file fails instantly (drag-and-drop bypasses `accept` entirely), and multer
+  rejects it server-side before a parser sees the buffer. `loadWorkbook` then
+  checks the file signature, because an extension is a claim rather than a fact.
+- **`IngestSummary` now carries the warnings, not just a count.** The upload
+  response has to list each skipped row with the spreadsheet row number a reader
+  can go and fix; a count alone would tell them something is wrong without saying
+  where.
+- **`Content-Type` is left unset on the upload request.** The browser has to add
+  it itself so it can include the multipart boundary — setting it by hand produces
+  a body the server cannot split.
+
+### Verified end to end, not just in tests
+
+Against a fresh database with both servers running: all three sample files
+uploaded (562 / 144 / 11, no warnings) and reconciled to AED 2,400,000.00; a
+re-upload left the totals unchanged; a four-row March file replaced March
+(50 → 4 rows) while April kept its 49 rows, 1,264.9 billable hours and its
+58.8636 indirect rate to the digit; the salary sheet posted to the timesheet slot
+returned a 400 naming the sheets it did contain, with the data still intact; and a
+deliberately corrupted file saved its one good row and reported rows 3, 4 and 5
+with the reason for each.
+
+A note for anyone doing the same: stale `tsx watch` processes from an earlier
+session hold port 4000 and an open handle on `data/app.db`. Deleting the database
+underneath one makes `/api/health` return a 500 that looks like a code bug and is
+not. Kill them before testing a fresh-database path.
+
+### Review follow-up on MD-10
+
+- **An ingest-time key collision was reported as a 500.** `parse()` wrapped
+  parser failures into a 400, but `duplicateRow` returned a plain `Error`, so a
+  spreadsheet with two rows sharing a primary key reached the user as
+  "Something went wrong. Please try again." — advice that could only ever fail
+  again, with the message naming the offending row discarded. It is an
+  `HttpError(400)` now, and the message lists just the key columns rather than
+  every field the row carries. There was no integration test for the
+  ingest-failure branch, which is why it survived; there is now.
+- **A broken database connection was undiagnosable.** Every DB-backed route
+  answered "Something went wrong. Please try again." with no hint. `errorHandler`
+  now recognises a `SQLITE_*` error and answers 503 saying the database could not
+  be read and that a server restart is needed — duck-typed on the code so the
+  middleware keeps no `better-sqlite3` import.
+- **The failure panel promised too much.** It said "nothing was saved" for every
+  failure, including a request that never got an answer — where the server may
+  well have committed first. It now says that only for a 4xx, and otherwise
+  admits the outcome is unknown and points at the history.
+- **An upload that saved nothing rendered as a success.** A file whose rows were
+  all skipped showed "0 rows saved" in positive green. It reads as a warning now.
+- Smaller: an unknown `:type` is rejected before multer buffers up to 10 MB;
+  dropping something that is not a file says so instead of doing nothing; the
+  history refresh ignores every response but the newest, which doubles as the
+  unmount guard; SheetJS's internal messages are logged rather than shown; and
+  the README assumptions gained the upload-history decision.
+
+### The real cause of "every upload fails"
+
+Reported as: every `.xlsx` upload returning "Something went wrong. Please try
+again." I first put this down to a stale SQLite handle from deleting `data/`
+under a running server. **That was wrong.** The server was running on Node 20:
+
+```
+ERR_DLOPEN_FAILED — NODE_MODULE_VERSION 127. This version of Node.js requires 115.
+```
+
+`better-sqlite3` ships no Node 20 prebuild, and — this is what made it hard to
+read — it binds its native module **lazily, on the first `new Database()`, not at
+import**. So the server boots cleanly, non-database routes answer normally
+(`/api/nope` still 404s correctly), and only requests that touch data fail. It
+looks exactly like a bug in the feature you just wrote.
+
+MD-1 predicted the Node 20 problem and MD-7 logged it, and it still cost an
+hour, because nothing enforced it. Now three things do:
+
+- **`npm install` refuses** — `engine-strict=true` in `.npmrc`, with `engines` on
+  every workspace rather than only the root.
+- **The server refuses to start**, printing `This is Node 20.20.0, and the project
+needs Node 22 (see .nvmrc). Run \`nvm use\`, then start again.` and exiting 1.
+  It opens the database before listening precisely so this cannot be discovered
+  one request at a time.
+- **`seed` and `selfcheck` do the same**, via `scripts/require-database.ts`,
+  rather than dying on an uncaught error with a stack through `node_modules`.
+
+`lib/db.ts` wraps the open in a `DatabaseUnavailableError` naming the fix, and the
+error handler shows that message on a 503 instead of replacing it with
+"Something went wrong" — the generic text is what turned a setup problem into a
+mystery.
+
+**Also worth knowing:** deleting `data/` while `npm run dev` is up leaves the
+process holding a stale SQLite handle, with the same symptom of database routes
+failing while the app looks healthy. Restart the server.
