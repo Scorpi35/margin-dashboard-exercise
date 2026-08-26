@@ -13,6 +13,7 @@ import type {
   Settings,
   TimesheetRow,
 } from '@shared/types';
+import { YEAR_MONTH_KEY_PATTERN } from '@shared/types';
 
 import { yearMonthKey } from '../parse/dates';
 
@@ -166,14 +167,23 @@ export function computeMonthCostSummaries(input: EngineInput): MonthCostSummary[
 
   for (const cost of computeEmployeeMonthCosts(input)) {
     const key = yearMonthKey(cost.year, cost.month);
-    byMonth.set(key, [...(byMonth.get(key) ?? []), cost]);
+    pushInto(byMonth, key, cost);
+  }
+
+  // Overhead is entered per month on the Settings page, often before the
+  // spreadsheets for those months are uploaded. Costing only the months that
+  // already have rows would drop that overhead from every total without saying
+  // so — real cost, silently missing. Each overhead month therefore gets an
+  // empty summary to carry it.
+  for (const key of overheadMonths(input.settings.monthlyOverhead)) {
+    if (!byMonth.has(key)) byMonth.set(key, []);
   }
 
   const summaries: MonthCostSummary[] = [];
 
-  for (const employees of byMonth.values()) {
-    const { year, month } = employees[0];
-    const overhead = input.settings.monthlyOverhead[yearMonthKey(year, month)] ?? 0;
+  for (const [key, employees] of byMonth) {
+    const { year, month } = employees[0] ?? parseYearMonthKey(key);
+    const overhead = input.settings.monthlyOverhead[key] ?? 0;
 
     const totalSalaries = sum(employees, (e) => e.salary ?? 0);
     const billableHours = sum(employees, (e) => e.billableHours);
@@ -228,7 +238,7 @@ export function computeProjectFinancials(input: EngineInput, period: Period): Pr
 
   const groups = new Map<string, TimesheetRow[]>();
   for (const row of billableRows.filter((row) => inPeriod(row, period))) {
-    groups.set(row.refCode, [...(groups.get(row.refCode) ?? []), row]);
+    pushInto(groups, row.refCode, row);
   }
 
   const financials: ProjectFinancials[] = [];
@@ -443,7 +453,7 @@ function contributions(
 ): EmployeeProjectContribution[] {
   const byEmployee = new Map<string, TimesheetRow[]>();
   for (const row of rows) {
-    byEmployee.set(row.employeeNo, [...(byEmployee.get(row.employeeNo) ?? []), row]);
+    pushInto(byEmployee, row.employeeNo, row);
   }
 
   return [...byEmployee.values()]
@@ -531,6 +541,32 @@ function totalsBy<T>(
     totals[key] = (totals[key] ?? 0) + valueOf(row);
   }
   return totals;
+}
+
+/**
+ * The months overhead has been entered for, well-formed ones only.
+ *
+ * A key the settings service would have rejected is ignored rather than
+ * conjuring a month out of `"banana"`.
+ */
+function overheadMonths(monthlyOverhead: Readonly<Record<string, number>>): string[] {
+  return Object.keys(monthlyOverhead).filter((key) => YEAR_MONTH_KEY_PATTERN.test(key));
+}
+
+/** Splits a `YYYY-MM` key back into its parts. Only ever called on a matched key. */
+function parseYearMonthKey(key: string): { year: number; month: MonthNumber } {
+  const [year, month] = key.split('-');
+
+  return { year: Number(year), month: Number(month) };
+}
+
+function pushInto<K, V>(groups: Map<K, V[]>, key: K, value: V): void {
+  const existing = groups.get(key);
+  if (existing === undefined) {
+    groups.set(key, [value]);
+  } else {
+    existing.push(value);
+  }
 }
 
 function sum<T>(rows: readonly T[], valueOf: (row: T) => number): number {

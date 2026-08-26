@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { DEFAULT_BILLABLE_CATEGORIES } from '@shared/types';
 
 import { getDb } from '../../src/lib/db';
+import { HttpError } from '../../src/middleware/errorHandler';
 import { ingestTimesheet } from '../../src/services/ingest.service';
 import {
   getAllKnownCategories,
@@ -53,6 +54,53 @@ describe('saveSettings', () => {
     saveSettings({ billableCategories: [], monthlyOverhead: {} });
 
     expect(getSettings().billableCategories).toEqual([]);
+  });
+});
+
+describe('overhead validation', () => {
+  it('rejects a key that is not a YYYY-MM month', () => {
+    // Storing it would report "saved" for an amount the engine can never apply.
+    for (const key of ['banana', '2025-13', '2025-00', '25-01', '2025-1']) {
+      expect(() =>
+        saveSettings({ billableCategories: ['Projects'], monthlyOverhead: { [key]: 100 } }),
+      ).toThrow(/YYYY-MM/);
+    }
+  });
+
+  it('rejects a negative or non-finite amount', () => {
+    for (const amount of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
+      expect(() =>
+        saveSettings({ billableCategories: ['Projects'], monthlyOverhead: { '2025-01': amount } }),
+      ).toThrow(/non-negative/);
+    }
+  });
+
+  it('reports the rejection as a 400', () => {
+    try {
+      saveSettings({ billableCategories: [], monthlyOverhead: { banana: 1 } });
+    } catch (err) {
+      expect((err as HttpError).statusCode).toBe(400);
+    }
+  });
+
+  it('leaves the stored settings untouched when a save is rejected', () => {
+    saveSettings({ billableCategories: ['Projects'], monthlyOverhead: { '2025-01': 100 } });
+
+    expect(() =>
+      saveSettings({ billableCategories: ['Changed'], monthlyOverhead: { banana: 1 } }),
+    ).toThrow();
+
+    expect(getSettings()).toEqual({
+      billableCategories: ['Projects'],
+      monthlyOverhead: { '2025-01': 100 },
+    });
+  });
+
+  it('accepts zero, which is a real overhead figure', () => {
+    expect(saveSettings({ billableCategories: [], monthlyOverhead: { '2025-01': 0 } })).toEqual({
+      billableCategories: [],
+      monthlyOverhead: { '2025-01': 0 },
+    });
   });
 });
 

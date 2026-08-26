@@ -323,6 +323,34 @@ describe('computePeriodSummary', () => {
     expect(computePeriodSummary(model, YEAR).unpricedRefCodes).toEqual(['NOPRICE']);
   });
 
+  it('costs overhead for a month with no rows yet, rather than dropping it', () => {
+    // Overhead is entered on the Settings page, often before the spreadsheets for
+    // those months exist. Costing only months that already have rows would lose
+    // it from every total with nothing to show that it had gone.
+    const model = twoMonths({ '2025-01': 800, '2025-08': 9_999 });
+    const summary = computePeriodSummary(model, YEAR);
+
+    expect(summary.totalOverhead).toBe(10_799);
+    expect(summary.totalCost).toBeCloseTo(40_799, 2);
+
+    const august = computePeriodSummary(model, { year: 2025, month: 8 });
+    expect(august.totalOverhead).toBe(9_999);
+    expect(august.totalCost).toBeCloseTo(9_999, 2);
+    expect(august.months).toHaveLength(1);
+    expect(august.months[0].totalSalaries).toBe(0);
+  });
+
+  it('ignores an overhead key that is not a month', () => {
+    // The settings service rejects these on the way in; the engine must not
+    // invent a month out of one that slipped past an older write.
+    const summary = computePeriodSummary(
+      twoMonths({ banana: 500, '2025-13': 500 } as Record<string, number>),
+      YEAR,
+    );
+
+    expect(summary.totalOverhead).toBe(0);
+  });
+
   it('adds overhead for the months in the period', () => {
     const summary = computePeriodSummary(twoMonths({ '2025-01': 800, '2025-02': 200 }), YEAR);
 
@@ -445,12 +473,16 @@ function collectNumbers(value: unknown): number[] {
 
 describe('the engine stays pure', () => {
   const source = readFileSync(join(__dirname, '../../src/calc/engine.ts'), 'utf8');
-  const imports = [...source.matchAll(/from '([^']+)'/g)].map((match) => match[1]);
+  // The set of modules, not the count of import statements — a module may be
+  // imported twice, once for types and once for a value.
+  const imports = [
+    ...new Set([...source.matchAll(/from '([^']+)'/g)].map((match) => match[1])),
+  ].sort();
 
   it('imports nothing from lib/, services/ or express', () => {
     // Purity is what lets selfcheck verify the whole model from the command line
     // without booting Express, and it is explicitly part of the grade.
-    expect(imports).toEqual(['@shared/types', '../parse/dates']);
+    expect(imports).toEqual(['../parse/dates', '@shared/types']);
     expect(imports.some((specifier) => /lib\/|services\/|express/.test(specifier))).toBe(false);
   });
 

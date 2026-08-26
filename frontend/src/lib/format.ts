@@ -1,0 +1,79 @@
+/**
+ * How numbers are written on screen.
+ *
+ * Formatting is the frontend's job; calculating is not. Nothing here derives a
+ * value — every rate, cost and margin arrives from the backend engine already
+ * computed.
+ */
+
+/**
+ * What a missing value looks like. A gap the reader can account for beats a `0`
+ * they will read as a real number.
+ */
+export const EM_DASH = '—';
+
+const AED = new Intl.NumberFormat('en-AE', {
+  style: 'currency',
+  currency: 'AED',
+  minimumFractionDigits: 0,
+  maximumFractionDigits: 0,
+});
+
+const HOURS = new Intl.NumberFormat('en-AE', {
+  minimumFractionDigits: 1,
+  maximumFractionDigits: 1,
+});
+
+/**
+ * Money, to the dirham and without decimals — at these magnitudes the fils are
+ * noise that stops columns scanning.
+ *
+ * `null` is an absent value, not zero: an unpriced project has no revenue, which
+ * is a different fact from earning nothing.
+ */
+export function formatAED(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return EM_DASH;
+
+  return AED.format(value);
+}
+
+/** Hours to one decimal, matching the precision the timesheets are kept in. */
+export function formatHours(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return EM_DASH;
+
+  return HOURS.format(value);
+}
+
+/**
+ * A ratio as a percentage. The engine returns margins as fractions, so `0.163`
+ * reads as `16.3%`.
+ *
+ * Losses keep their sign — a margin of −112% is the headline, not a footnote.
+ */
+export function formatPct(value: number | null | undefined, fractionDigits = 1): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return EM_DASH;
+
+  return `${(value * 100).toFixed(fractionDigits)}%`;
+}
+
+const MONTH_NAMES = [
+  'January',
+  'February',
+  'March',
+  'April',
+  'May',
+  'June',
+  'July',
+  'August',
+  'September',
+  'October',
+  'November',
+  'December',
+];
+
+/** The name of a 1–12 month, or an em dash for anything that is not one. */
+export function monthName(month: number | null | undefined): string {
+  if (month === null || month === undefined || !Number.isInteger(month)) return EM_DASH;
+
+  return MONTH_NAMES[month - 1] ?? EM_DASH;
+}

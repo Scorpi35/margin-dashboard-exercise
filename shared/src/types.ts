@@ -31,6 +31,19 @@ export type MonthNumber = number;
  */
 export type YearMonthKey = string;
 
+/** Matches a well-formed {@link YearMonthKey}, month included in `01`–`12`. */
+export const YEAR_MONTH_KEY_PATTERN = /^\d{4}-(0[1-9]|1[0-2])$/;
+
+/**
+ * The window a year has to fall in to be believable.
+ *
+ * One policy, used in two places: rejecting an Excel serial that is really just a
+ * number, and rejecting a `?year=` a caller made up. Keeping the bounds here stops
+ * the two drifting apart.
+ */
+export const MIN_DATA_YEAR = 1970;
+export const MAX_DATA_YEAR = 2199;
+
 /* -------------------------------------------------------------------------- */
 /* Source spreadsheet vocabulary                                               */
 /* -------------------------------------------------------------------------- */
@@ -345,6 +358,13 @@ export type ApiResponse<T> = ApiSuccess<T> | ApiFailure;
 
 /** Payload of `GET /api/health`. */
 export interface HealthStatus {
-  readonly service: string;
-  readonly uptimeSeconds: number;
+  /**
+   * Whether anything has been ingested yet. The UI needs this to tell an empty
+   * database apart from a period that genuinely has no work in it — one wants an
+   * upload prompt, the other a "nothing logged" note.
+   */
+  readonly hasData: boolean;
 }
+
+/** The three spreadsheets, as they appear in `POST /api/uploads/:type`. */
+export type UploadType = 'timesheet' | 'salary' | 'projects';

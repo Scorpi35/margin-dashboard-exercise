@@ -1,4 +1,5 @@
 import type { MonthNumber } from '@shared/types';
+import { MAX_DATA_YEAR, MIN_DATA_YEAR } from '@shared/types';
 
 /**
  * The only place a date is ever interpreted.
@@ -59,9 +60,11 @@ const MIN_EXCEL_SERIAL = 61;
  * A number in a month column is only a date if it resolves to a plausible one.
  * A bare `2025` is a valid serial — it means 1905-07-17 — and a year with no
  * month is not a month anyway, so the guard turns a silent misfile into a throw.
+ *
+ * The bounds are shared with request validation so the two cannot drift.
  */
-const MIN_PLAUSIBLE_YEAR = 1970;
-const MAX_PLAUSIBLE_YEAR = 2199;
+const MIN_PLAUSIBLE_YEAR = MIN_DATA_YEAR;
+const MAX_PLAUSIBLE_YEAR = MAX_DATA_YEAR;
 
 /**
  * Resolves a month name to `1`–`12`, or `null` if it is not one.

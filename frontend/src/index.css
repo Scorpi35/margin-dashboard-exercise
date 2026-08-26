@@ -1,22 +1,88 @@
 @import 'tailwindcss';
 
-/* Design tokens. Components reference these, never a raw hex value. */
-:root {
-  --color-surface: #ffffff;
-  --color-surface-muted: #f6f7f9;
-  --color-border: #e3e6ea;
-  --color-text: #14181f;
-  --color-text-muted: #626c7a;
+/*
+ * Design tokens. Components reference these — never a raw hex value.
+ *
+ * Declared in `@theme` so Tailwind generates utilities from them: `bg-paper`,
+ * `text-ink-muted`, `border-line`. That is what makes "no hardcoded hex in a
+ * component" practical rather than aspirational — there is a utility for every
+ * colour the design has, and nothing else to reach for.
+ *
+ * `static` emits every token whether or not a utility uses it yet. Without it
+ * Tailwind tree-shakes the unused ones, so `var(--color-positive)` would silently
+ * resolve to nothing until the first component happened to reference it.
+ *
+ * The palette is documented in docs/coding-guidelines.md.
+ */
+@theme static {
+  /* Surfaces: the page, and the cards and tables that sit on it. */
+  --color-paper: #f6f7f9;
+  --color-paper-raised: #ffffff;
+  --color-paper-sunken: #eceff3;
+
+  /* Text. */
+  --color-ink: #14181f;
+  --color-ink-muted: #626c7a;
+  --color-ink-faint: #939ba7;
+
+  /* Rules, borders, table gridlines. */
+  --color-line: #e3e6ea;
+  --color-line-strong: #cbd1d9;
+
+  /* Interactive: links, the selected nav item, focus. */
+  --color-accent: #1f5fa8;
+  --color-accent-hover: #17497f;
+  --color-accent-soft: #e8f0fa;
+
+  /* Money moving the right way, and the wrong way. */
   --color-positive: #0f7b52;
+  --color-positive-soft: #e6f3ed;
   --color-negative: #b3261e;
+  --color-negative-soft: #fbeae9;
+
+  /* Gaps in the data — a missing salary, an unpriced ref code. */
+  --color-warning: #8a5a00;
+  --color-warning-soft: #fdf3e0;
+
+  --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 
 body {
-  background-color: var(--color-surface-muted);
-  color: var(--color-text);
+  background-color: var(--color-paper);
+  color: var(--color-ink);
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
 }
 
-/* Numeric table columns line up only with tabular figures. */
+/*
+ * Numeric columns line up only with tabular figures. Columns of numbers that
+ * don't line up read as amateur.
+ */
 .tabular {
   font-variant-numeric: tabular-nums;
+  font-feature-settings: 'tnum';
+}
+
+/*
+ * Accessibility floor.
+ *
+ * A visible ring on keyboard focus only — :focus-visible keeps it off mouse
+ * clicks, so there is no reason to suppress it. Never remove this.
+ */
+:focus-visible {
+  outline: 2px solid var(--color-accent);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Respect a system-level request for less motion. */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

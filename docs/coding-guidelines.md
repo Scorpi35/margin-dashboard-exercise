@@ -69,7 +69,30 @@ names from the brief.
 - Avoid `useEffect` for derived state — compute it directly during render or with `useMemo`.
 - Keys in lists must be stable IDs (`refCode`, `employeeNo`), never array index.
 - **A `null` from the API renders as an em dash `—`, never `0`.** Flagging why it's absent is the page's job, not the cell's: surface missing salaries and unpriced ref codes in a warning banner.
-- Design tokens are CSS custom properties in `index.css`. Use them; never hardcode a hex value in a component.
+- Design tokens are CSS custom properties in `index.css`, declared in `@theme static`
+  so Tailwind generates a utility for each (`bg-paper`, `text-ink-muted`,
+  `border-line`). Use them; never hardcode a hex value in a component.
+
+  | Token                   | Role                                            |
+  | ----------------------- | ----------------------------------------------- |
+  | `--color-paper`         | Page background                                 |
+  | `--color-paper-raised`  | Cards, tables, the sidebar                      |
+  | `--color-paper-sunken`  | Hover fills, inset wells                        |
+  | `--color-ink`           | Primary text                                    |
+  | `--color-ink-muted`     | Secondary text, inactive nav                    |
+  | `--color-ink-faint`     | Captions, hints                                 |
+  | `--color-line`          | Borders and table gridlines                     |
+  | `--color-line-strong`   | Emphasised rules, header separators             |
+  | `--color-accent`        | Links, selected nav, the focus ring             |
+  | `--color-accent-hover`  | Accent under the pointer                        |
+  | `--color-accent-soft`   | Selected-row and selected-nav background        |
+  | `--color-positive`      | Profit, healthy margin                          |
+  | `--color-positive-soft` | Background wash behind a positive figure        |
+  | `--color-negative`      | Loss, negative margin                           |
+  | `--color-negative-soft` | Background wash behind a loss                   |
+  | `--color-warning`       | Gaps in the data — missing salary, unpriced ref |
+  | `--color-warning-soft`  | Warning banner background                       |
+
 - Numeric table columns are right-aligned with tabular figures (`.tabular`). Columns of numbers that don't line up read as amateur.
 
 ## Express (Backend) Conventions
@@ -100,11 +123,12 @@ names from the brief.
 - Services never touch `req`/`res` — keep them framework-agnostic and testable.
 - Validation is hand-rolled, not schema-based — there is no `zod` in this repo.
   Every value read from `req.query`, `req.body` or `req.params` is validated before
-  use, throwing `HttpError(400, ...)`. Follow the established `requireYear` /
-  `optionalMonth` / `requireUploadType` helpers in
-  `controllers/dashboard.controller.ts`; never trust request input directly. A
-  `year` of `"banana"` must produce a 400, not a `NaN` that silently poisons a
-  filter.
+  use, throwing `HttpError(400, ...)`. Reuse `requireYear` / `optionalMonth` /
+  `requireUploadType` from `controllers/validation.ts` rather than re-parsing input
+  in a controller; never trust request input directly. A `year` of `"banana"` must
+  produce a 400, not a `NaN` that silently poisons a filter. Note that `Number()`
+  alone is not enough — it reads `"2e3"` as 2000 and `"0x7e9"` as 2025, both of
+  which pass a range check.
 - **Uploads**: `multer` in memory, `.xlsx`/`.xls` only, rejected before parsing.
   The buffer goes to a parser; the parser's rows go to the ingest service. A
   parser exception (structurally wrong file) becomes an `HttpError(400, ...)` and
