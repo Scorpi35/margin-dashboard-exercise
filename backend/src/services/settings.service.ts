@@ -1,7 +1,8 @@
 import type { Settings, YearMonthKey } from '@shared/types';
-import { DEFAULT_BILLABLE_CATEGORIES } from '@shared/types';
+import { DEFAULT_BILLABLE_CATEGORIES, YEAR_MONTH_KEY_PATTERN } from '@shared/types';
 
 import { getDb } from '../lib/db';
+import { HttpError } from '../middleware/errorHandler';
 
 /**
  * The two things a user can change without a code change: which categories count
@@ -26,7 +27,18 @@ export function getSettings(): Settings {
   };
 }
 
+/**
+ * @throws if the overhead map is malformed. Storing it and quietly falling back
+ * on the next read would tell the user their overhead was saved when it was not.
+ */
 export function saveSettings(settings: Settings): Settings {
+  if (!isOverheadMap(settings.monthlyOverhead)) {
+    throw new HttpError(
+      400,
+      'Monthly overhead must be keyed by month as "YYYY-MM", with a non-negative amount for each.',
+    );
+  }
+
   const db = getDb();
   const upsert = db.prepare(
     `INSERT INTO settings (key, value) VALUES (?, ?)
@@ -45,7 +57,8 @@ export function saveSettings(settings: Settings): Settings {
  * Every category the timesheet has ever contained, so the settings page can offer
  * real choices rather than a free-text box.
  *
- * Billability is decided here and nowhere else — never from a name prefix, since
+ * Listing them is all this does. Which of them count as billable is a stored
+ * setting, applied by the engine — never inferred from a name prefix, since
  * `Tentwenty` is internal work and carries no `FC - ` prefix.
  */
 export function getAllKnownCategories(): string[] {
@@ -83,11 +96,21 @@ function isStringArray(value: unknown): value is string[] {
   return Array.isArray(value) && value.every((entry) => typeof entry === 'string');
 }
 
+/**
+ * Overhead must be keyed `YYYY-MM` and non-negative.
+ *
+ * An unchecked key is worse than a rejected one: the engine looks overhead up by
+ * month key, so `"banana"` or `"2025-13"` would be stored, shown back to the user
+ * as saved, and then never applied to anything.
+ */
 function isOverheadMap(value: unknown): value is Record<YearMonthKey, number> {
-  return (
-    typeof value === 'object' &&
-    value !== null &&
-    !Array.isArray(value) &&
-    Object.values(value).every((entry) => typeof entry === 'number' && Number.isFinite(entry))
+  if (typeof value !== 'object' || value === null || Array.isArray(value)) return false;
+
+  return Object.entries(value).every(
+    ([key, entry]) =>
+      YEAR_MONTH_KEY_PATTERN.test(key) &&
+      typeof entry === 'number' &&
+      Number.isFinite(entry) &&
+      entry >= 0,
   );
 }

@@ -211,3 +211,39 @@ Decisions worth knowing about:
 - New dependencies: `react-router-dom` (named in the issue),
   `@testing-library/react`, `@testing-library/user-event` and `jsdom` — the
   guidelines already named React Testing Library as this project's convention.
+
+## 2026-08-26 — Review findings across the branch
+
+A pass over the whole branch against `docs/review.md` turned up one real
+correctness bug and a handful of smaller gaps.
+
+- **Overhead entered for a month with no ingested rows was silently dropped.**
+  `computePeriodSummary` took its month list from `computeMonthCostSummaries`,
+  which only emitted months that had timesheet or salary rows. Overhead for any
+  other month never reached a total and nothing said so — with
+  `{ '2025-01': 500, '2025-08': 9999 }` the year reported 500. The workflow that
+  triggers it is ordinary: set the year's overhead on the Settings page, then
+  upload January. `computeMonthCostSummaries` now emits an empty summary for each
+  month that carries overhead, so it is costed whether or not anyone has logged
+  hours against it. The invariant is untouched — it is stated at overhead zero.
+- **Overhead keys were never validated.** `{"banana": -500, "2025-13": 1}` saved
+  and read back intact, and the engine — which looks up by month key — could never
+  apply it. The user was told it saved. `saveSettings` now rejects a malformed map
+  with a 400 rather than storing something the next read discards, and the engine
+  ignores any key that is not `YYYY-MM` as defence in depth.
+- **`hasIngestedData()` only looked at `timesheet_entries`**, so a database
+  holding salaries reported "no data" and the UI would have asked for an upload
+  that had already happened. It now checks all three tables.
+- **The revenue-share formula is now documented where it is defined.** The engine
+  divides the period's recognised revenue rather than the whole contract price;
+  over a full period the two are the same number, but the deviation only lived in
+  a code comment. `docs/cost-model.md` states it, and `README.md` gained an
+  Assumptions section collecting all eleven judgement calls the branch makes —
+  previously only in this log, which the review rules do not accept as the place.
+- Smaller: the plausible-year window is one pair of constants in `shared/`
+  instead of two in `parse/dates.ts` and `controllers/validation.ts`; grouping
+  loops push instead of rebuilding the accumulator array per row; two comments
+  claimed behaviour that did not exist (`getHealth` has no caller yet, and
+  `getAllKnownCategories` does not decide billability); and `db.test.ts` now
+  asserts that no controller, service or route imports `resetDb` — the one
+  `DELETE` with no month predicate.

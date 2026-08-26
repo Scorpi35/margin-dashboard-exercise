@@ -122,8 +122,13 @@ export function closeDb(): void {
 }
 
 /**
- * Empties every table, keeping the schema. Used by `npm run seed` so a re-seed
- * is a clean slate rather than an upsert over whatever was there before.
+ * Empties every table, keeping the schema. Used by `npm run seed --fresh` so a
+ * re-seed is a clean slate rather than an upsert over whatever was there before.
+ *
+ * **Scripts only.** This is the one `DELETE` in the codebase with no month
+ * predicate, and nothing about a request should ever be able to reach it — an
+ * upload replaces the months it contains and no more. `db.test.ts` asserts that
+ * no controller or service imports it.
  */
 export function resetDb(): void {
   const db = getDb();

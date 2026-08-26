@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
@@ -59,6 +59,24 @@ describe('resetDb', () => {
     expect(getDb().prepare('SELECT COUNT(*) AS count FROM uploads').get()).toEqual({ count: 0 });
     // Still usable straight afterwards.
     expect(() => ingestTimesheet(parsed([entry()]), 'second.xlsx')).not.toThrow();
+  });
+});
+
+describe('resetDb stays out of the request path', () => {
+  it('is imported by scripts only, never a controller or service', () => {
+    // The one DELETE with no month predicate. An upload replaces the months it
+    // contains and no more; nothing reachable from a request may empty the year.
+    const sources = [
+      ...readdirSync(join(__dirname, '../../src/controllers')).map((f) => `src/controllers/${f}`),
+      ...readdirSync(join(__dirname, '../../src/services')).map((f) => `src/services/${f}`),
+      ...readdirSync(join(__dirname, '../../src/routes')).map((f) => `src/routes/${f}`),
+    ];
+
+    const offenders = sources.filter((file) =>
+      readFileSync(join(__dirname, '../..', file), 'utf8').includes('resetDb'),
+    );
+
+    expect(offenders).toEqual([]);
   });
 });
 

@@ -233,3 +233,20 @@ piece of work. Pro-rata attribution keeps cost and revenue in the same period.
 
 Full-year and all-time figures are identical under either approach; only the
 month view differs.
+
+### What the share formulas divide
+
+Because a period's revenue can be a slice of the price rather than all of it, the
+two share formulas above take their numerator from the revenue **recognised in the
+period being viewed**, not from the whole contract:
+
+```
+employee revenue share  =  revenue in period × (employee hours ÷ total project hours)
+project profitability   =  (revenue in period − cost in period) ÷ revenue in period
+```
+
+Over a full year or all time, `revenue in period` _is_ the price, so these reduce
+to the formulas as written above and every documented figure is unchanged. In a
+month view they keep the per-employee shares adding up to the revenue shown on the
+project row — using the whole price there would put two numbers on one screen that
+do not reconcile.
