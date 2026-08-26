@@ -1,9 +1,68 @@
 /**
- * Seeds the SQLite database from the committed `sample-data/` spreadsheets.
+ * Seeds the SQLite database from the committed `sample-data/` spreadsheets, so a
+ * clean checkout has something to look at in one command.
  *
- * Wired up here as part of the scaffold (MD-1); the parsers and the ingest
- * service it calls land in a later issue. It exits non-zero rather than
- * reporting success so a green run always means real work happened.
+ * The database is emptied first: a re-seed is a clean slate, not an upsert over
+ * whatever happened to be there. Expected output is documented in
+ * `docs/data-sources.md` — 562 / 144 / 11 rows and no warnings.
+ *
+ * Exits non-zero if a parser reports a warning, because on this data a warning
+ * means a parser started skipping rows it used to read.
  */
-console.error('seed: not implemented yet — parsers and the ingest service land in a later issue.');
-process.exit(1);
+
+import { readFileSync } from 'node:fs';
+import { join } from 'node:path';
+
+import type { ParseWarning } from '@shared/types';
+
+import { closeDb, resetDb } from '../src/lib/db';
+import { parseProjects } from '../src/parse/projects';
+import { parseSalary } from '../src/parse/salary';
+import { parseTimesheet } from '../src/parse/timesheet';
+import {
+  ingestProjects,
+  ingestSalaries,
+  ingestTimesheet,
+  readProjects,
+  readSalaries,
+  readTimesheet,
+} from '../src/services/ingest.service';
+
+const SAMPLE_DATA = join(__dirname, '../../sample-data');
+const read = (file: string): Buffer => readFileSync(join(SAMPLE_DATA, file));
+
+const TIMESHEET_FILE = 'timesheet-2025.xlsx';
+const SALARY_FILE = 'salaries-2025.xlsx';
+const PROJECTS_FILE = 'project-prices-2025.xlsx';
+
+const timesheet = parseTimesheet(read(TIMESHEET_FILE), TIMESHEET_FILE);
+const salaries = parseSalary(read(SALARY_FILE), SALARY_FILE);
+const projects = parseProjects(read(PROJECTS_FILE), PROJECTS_FILE);
+
+resetDb();
+ingestTimesheet(timesheet, TIMESHEET_FILE);
+ingestSalaries(salaries, SALARY_FILE);
+ingestProjects(projects, PROJECTS_FILE);
+
+console.log('seed complete\n');
+console.log(`  timesheet_entries  ${String(readTimesheet().length).padStart(4)}`);
+console.log(`  salaries           ${String(readSalaries().length).padStart(4)}`);
+console.log(`  projects           ${String(readProjects().length).padStart(4)}`);
+
+const warnings: ParseWarning[] = [
+  ...timesheet.warnings,
+  ...salaries.warnings,
+  ...projects.warnings,
+];
+
+closeDb();
+
+if (warnings.length > 0) {
+  console.error(`\n${warnings.length} parser warning(s) — rows were skipped:`);
+  for (const warning of warnings) {
+    console.error(`  ${warning.file} row ${warning.row ?? '?'}: ${warning.message}`);
+  }
+  process.exit(1);
+}
+
+console.log('\n  0 warnings. Run `npm run selfcheck` to verify the cost model reconciles.');
