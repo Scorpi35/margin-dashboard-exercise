@@ -1,0 +1,19 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "rootDir": "src",
+    "outDir": "dist",
+    // The backend is CommonJS and `require`s this package at runtime; the
+    // frontend's bundler handles CJS from node_modules either way.
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    // Incompatible with a CommonJS emit, and unnecessary here — `types.ts` has
+    // no imports to preserve.
+    "verbatimModuleSyntax": false,
+    // Consumers read types from `src/`, so declarations would only go stale.
+    "declaration": false,
+    "sourceMap": true
+  },
+  "include": ["src/**/*"]
+}
