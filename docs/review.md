@@ -6,7 +6,7 @@ edit this file, not them:
 - `.claude/commands/review.md` (Claude Code `/review`)
 - `.agents/skills/source-command-review/SKILL.md` (migrated skill)
 - `REVIEW.md` (repo root)
-- `AGENTS.md` (via the Documentation table)
+- `AGENTS.md` (the note below the Documentation table)
 
 ## Procedure
 
