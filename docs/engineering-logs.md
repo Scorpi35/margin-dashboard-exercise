@@ -700,3 +700,49 @@ the raw path, and both Express and React Router decode it correctly.
   `DepartmentBreakdown` is the company-wide payload and the two are different
   scopes. `getDepartment` carries the same note as `getProject` about recomputing
   everything to answer for one.
+
+### Editor-only ESLint failure: multiple candidate TSConfigRootDirs
+
+Every TypeScript file opened in the editor reported a parsing error naming
+`frontend` and `backend` as competing root directories, while `npm run lint`
+stayed green.
+
+The cause is in `typescript-eslint`: reading `tseslint.configs.*` registers the
+accessing config's directory as a candidate root, and the candidate list is a
+**module-level Set shared by the whole process**. `createParseSettings` then
+calls `getInferredTSConfigRootDir()` unconditionally whenever `tsconfigRootDir`
+is unset, and that throws as soon as there is more than one candidate. The CLI
+never sees it because each `npm run lint` loads exactly one workspace config; an
+editor's language server lints files from every workspace in a single process, so
+it always ends up with two or three.
+
+All three configs now set `parserOptions.tsconfigRootDir` to
+`import.meta.dirname`, which skips the inference. Verified that the option really
+reaches the parser rather than sitting inert, by temporarily setting a relative
+path and watching it be rejected — `parserOptions.tsconfigRootDir must be an
+absolute path` — then restoring it.
+
+Noted in `docs/coding-guidelines.md`, because a fourth workspace would bring the
+problem straight back.
+
+### Deprecated tsconfig options
+
+Two settings the editor flags and the compiler does not: `tsc` reports nothing
+for either, so these were only ever visible in the editor, which renders
+deprecated options struck through.
+
+- **`"moduleResolution": "Node"` → `"node10"`** in `backend/tsconfig.json` and
+  `shared/tsconfig.build.json`. TypeScript 5.0 renamed the value; `Node` has been
+  the deprecated alias since. A pure rename — `tsc --showConfig` reports the same
+  resolution kind, and the backend still resolves `@shared/types` through the
+  package's `types`/`main` fields exactly as before.
+- **`baseUrl` removed** from `frontend/tsconfig.json`. It is deprecated, and
+  since TypeScript 4.4 `paths` resolves relative to the tsconfig's own directory,
+  so `"baseUrl": "."` was restating the default. Verified with
+  `--traceResolution` that `@/lib/format` still resolves through `paths`.
+
+Deliberately _not_ moved to `node16`/`nodenext` for the backend. That would let
+TypeScript honour the `exports` conditions on `@shared/types` rather than falling
+back to `main`, which is tidier — but it changes module-detection semantics and
+would need `module` moved in step. `node10` preserves today's behaviour exactly,
+which is what a deprecation rename should do. Worth doing on its own another day.

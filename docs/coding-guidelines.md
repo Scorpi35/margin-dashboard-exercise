@@ -218,10 +218,18 @@ names from the brief.
 - The post-edit hook (`.claude/hooks/post-edit-hook.sh`)
   runs Prettier, `eslint --fix`, and `tsc --noEmit` on every agent edit to a
   `.js/.jsx/.ts/.tsx` file, so agent-written code is formatted on the way in.
-- ESLint handles correctness, not style: `backend/eslint.config.mjs` (flat config)
-  and `frontend/eslint.config.mjs`. Both extend `eslint-config-prettier` **last**,
-  which disables stylistic rules that would fight Prettier — keep it last when
-  editing either config.
+- ESLint handles correctness, not style: `shared/`, `backend/` and `frontend/`
+  each have their own `eslint.config.mjs` (flat config). All three extend
+  `eslint-config-prettier` **last**, which disables stylistic rules that would
+  fight Prettier — keep it last when editing any of them.
+- Every workspace config sets `parserOptions.tsconfigRootDir` to
+  `import.meta.dirname`. A new workspace must do the same. typescript-eslint
+  collects a candidate root directory per config in a **process-wide** list, and
+  refuses to guess once there is more than one — which is exactly what an
+  editor's language server produces when it lints files from two workspaces in
+  one process (`No tsconfigRootDir was set, and multiple candidate
+TSConfigRootDirs are present`). The CLI never hits it, because each
+  `npm run lint` loads one config.
 - No unused variables/imports (fails lint; `argsIgnorePattern: '^_'` on the backend).
 - CI runs `format:check`, `lint`, `typecheck`, `test`, `test:integration`, then
   `seed` and `selfcheck` — in that order, because `selfcheck` reconciles what is

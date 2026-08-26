@@ -16,7 +16,8 @@
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "noEmit": true,
-    "baseUrl": ".",
+    // No `baseUrl`: it is deprecated, and `paths` has resolved relative to this
+    // file's directory since TypeScript 4.4, so it was only restating the default.
     "paths": {
       "@/*": ["./src/*"]
     }
