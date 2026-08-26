@@ -198,9 +198,12 @@ names from the brief.
   which disables stylistic rules that would fight Prettier — keep it last when
   editing either config.
 - No unused variables/imports (fails lint; `argsIgnorePattern: '^_'` on the backend).
-- CI runs `format:check`, `lint`, `typecheck`, `test`, `test:integration`, and
-  `selfcheck`. Unformatted or unreconciled code fails the build — run
-  `npm run format` before pushing if you edited files outside an agent session.
+- CI runs `format:check`, `lint`, `typecheck`, `test`, `test:integration`, then
+  `seed` and `selfcheck` — in that order, because `selfcheck` reconciles what is
+  in the database rather than re-parsing the spreadsheets, and reports an empty
+  one rather than passing vacuously. Unformatted or unreconciled code fails the
+  build — run `npm run format` before pushing if you edited files outside an
+  agent session.
 
 ## Comments & Documentation
 

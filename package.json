@@ -19,7 +19,7 @@
     "format:check": "prettier --check .",
     "test": "npm run test --workspaces --if-present",
     "test:integration": "npm run test:integration --workspace backend",
-    "seed": "npm run seed --workspace backend",
+    "seed": "npm run seed --workspace backend --",
     "selfcheck": "npm run selfcheck --workspace backend"
   },
   "devDependencies": {
