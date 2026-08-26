@@ -229,6 +229,25 @@ export function hasIngestedData(): boolean {
   return row.present > 0;
 }
 
+/**
+ * Every year that has data, ascending.
+ *
+ * Both tables are consulted: a year with salaries but no hours still has cost in
+ * it, and offering only years with timesheet rows would hide that.
+ */
+export function readAvailableYears(): number[] {
+  const rows = getDb()
+    .prepare(
+      `SELECT DISTINCT year FROM timesheet_entries
+       UNION
+       SELECT DISTINCT year FROM salaries
+       ORDER BY year`,
+    )
+    .all() as { year: number }[];
+
+  return rows.map((row) => Number(row.year));
+}
+
 export function readTimesheet(): TimesheetRow[] {
   const rows = getDb()
     .prepare(

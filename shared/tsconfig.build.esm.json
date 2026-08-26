@@ -1,0 +1,16 @@
+{
+  "extends": "./tsconfig.json",
+  "compilerOptions": {
+    "noEmit": false,
+    "rootDir": "src",
+    "outDir": "dist/esm",
+    // ESM for bundlers. Rollup cannot see through the `__exportStar` and
+    // `exports.x =` that a CommonJS emit produces for a symlinked workspace
+    // package, so a value imported from here would fail the frontend build.
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "declaration": false,
+    "sourceMap": true
+  },
+  "include": ["src/**/*"]
+}

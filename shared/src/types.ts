@@ -1,5 +1,11 @@
 /**
- * The vocabulary both workspaces speak.
+ * The vocabulary both workspaces speak, and the package entry point.
+ *
+ * Deliberately one module rather than a barrel over one. A re-exporting
+ * `index.ts` compiles to `__exportStar`, which a bundler cannot analyse
+ * statically — the frontend's production build then fails on any *value*
+ * imported through it, while type-only imports keep working because they are
+ * erased. That failure waits until the first runtime export is used.
  *
  * `shared/` imports nothing from `backend/` or `frontend/` — it is the contract,
  * not a utility library. The engine's output types double as the API payloads,
@@ -355,6 +361,20 @@ export interface ApiFailure {
 }
 
 export type ApiResponse<T> = ApiSuccess<T> | ApiFailure;
+
+/**
+ * Payload of `GET /api/meta` — what the filters need to offer real choices.
+ *
+ * Separate from the dashboard itself because it changes only on an upload or a
+ * settings save, while the summary changes with every filter.
+ */
+export interface AppMeta {
+  /** Years that have any data, ascending. Empty means nothing has been ingested. */
+  readonly years: readonly number[];
+  /** Every category the timesheet has ever contained, sorted. */
+  readonly categories: readonly string[];
+  readonly settings: Settings;
+}
 
 /** Payload of `GET /api/health`. */
 export interface HealthStatus {

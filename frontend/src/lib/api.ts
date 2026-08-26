@@ -1,6 +1,8 @@
 import type {
   ApiResponse,
+  AppMeta,
   HealthStatus,
+  PeriodSummary,
   UploadHistoryEntry,
   UploadResult,
   UploadType,
@@ -93,4 +95,22 @@ export function uploadSpreadsheet(type: UploadType, file: File): Promise<UploadR
 /** `GET /api/uploads` — what has been ingested, newest first. */
 export function getUploadHistory(): Promise<UploadHistoryEntry[]> {
   return apiGet<UploadHistoryEntry[]>('/uploads');
+}
+
+/**
+ * `GET /api/dashboard` — totals for a period.
+ *
+ * `month` of `null` means the whole year. The parameter is omitted rather than
+ * sent empty, so the URL says what it means.
+ */
+export function getDashboard(year: number, month: number | null): Promise<PeriodSummary> {
+  const query = new URLSearchParams({ year: String(year) });
+  if (month !== null) query.set('month', String(month));
+
+  return apiGet<PeriodSummary>(`/dashboard?${query.toString()}`);
+}
+
+/** `GET /api/meta` — the years, categories and settings the filters are built from. */
+export function getMeta(): Promise<AppMeta> {
+  return apiGet<AppMeta>('/meta');
 }

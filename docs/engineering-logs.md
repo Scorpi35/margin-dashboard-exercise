@@ -359,3 +359,95 @@ mystery.
 **Also worth knowing:** deleting `data/` while `npm run dev` is up leaves the
 process holding a stale SQLite handle, with the same symptom of database routes
 failing while the app looks healthy. Restart the server.
+
+## 2026-08-26 — MD-11: dashboard
+
+`GET /api/dashboard?year&month` and `GET /api/meta`, behind a page with six stat
+cards and a period filter. First use of `usePeriodFilter`, which every filtered
+page from here shares.
+
+Decisions worth knowing about:
+
+- **The whole dataset goes to the engine, never a pre-filtered slice.**
+  `dashboard.service.ts` loads every row and passes the period alongside it, so
+  the period selects which rows are _aggregated_ while rates stay derived from
+  the full month they belong to. Filtering to March must not recompute March's
+  direct and indirect rates from a subset of March. Commented at the call site.
+- **The default period is written into the URL rather than held implicitly.**
+  With no `?year=`, the page adopts the most recent year that has data and
+  replaces the URL with it. A period the address bar does not show is not
+  linkable, which defeats the point of keeping filter state there.
+- **An unreadable `?year=` falls back to the default instead of being coerced.**
+  `usePeriodFilter` treats anything non-numeric as absent — a `NaN` reaching the
+  filter renders an empty dashboard that looks like a real answer.
+- **`/api/meta` is separate from the summary** because it changes only on an
+  upload or a settings save, while the summary changes with every filter. Its
+  `years` also drive the empty state: no years means nothing has been ingested,
+  which is a different claim from a year in which the agency did no work.
+- **`readAvailableYears()` unions both tables.** A year with salaries but no
+  logged hours still has cost in it; offering only years with timesheet rows
+  would hide that.
+- **A `DataGapsBanner` sits above the cards.** Not in the acceptance criteria, but
+  the coding guidelines require unpriced ref codes and missing salaries to be
+  surfaced — an em dash the reader cannot account for is worse than no number.
+
+### On "a project's cost is identical whether viewed unfiltered or filtered"
+
+Taken literally this holds only for a project whose hours fall in one month, and
+the sample has none — all eleven span several. The meaningful form is that a
+project's twelve monthly costs sum to its annual cost, which is what proves rates
+are not being recomputed from a filtered subset. Verified exactly, all eleven:
+
+```
+Q2025001a   annual 468776.21   sum of months 468776.21
+E2025050a   annual 195062.44   sum of months 195062.44
+…
+```
+
+The same decomposition holds for company-wide cost: the twelve monthly totals sum
+to AED 2,400,000.00.
+
+### Review follow-up on MD-11, and what the post-edit hook found
+
+The hook had been configured in `.claude/settings.local.json`, so it never ran.
+Running it over all 79 source files surfaced two things worth more than the
+review findings did.
+
+- **`shared/` had never been linted.** It has no `eslint.config.mjs` and had no
+  `lint` script, and the root `lint` uses `--workspaces --if-present`, so it was
+  skipped in silence — 400 lines of the API contract, unchecked. It now has both,
+  and passes. `npm run lint` covers three workspaces rather than two.
+- **The hook only knew about `frontend` and `backend`.** A file under `shared/`
+  fell through to the repo root, where there is no ESLint config, and every edit
+  reported `ESLint couldn't find an eslint.config file` as a failure. It now
+  derives the workspace from a list, and skips the project tools with no
+  complaint for a file that belongs to none of them.
+
+**The barrel in `shared/` was breaking the frontend production build.**
+`src/index.ts` re-exported `./types`, which compiles to `__exportStar`. Rollup
+cannot see through that for a symlinked workspace package, so any _value_
+imported from `@shared/types` failed the build — while type-only imports kept
+working, because they are erased. It had gone unnoticed since MD-2 because the
+frontend had only ever imported types. Importing `MIN_DATA_YEAR` for review
+finding 2 was the first value, and the build broke immediately.
+
+Pointing the package at `types.ts` directly was not enough: a CommonJS emit is
+equally opaque to Rollup outside `node_modules`. `shared/` now builds twice —
+CommonJS for the backend, which `require`s it, and ESM for the frontend's
+bundler — selected by `import`/`require` conditions in `exports`. Verified from
+both sides: `require('@shared/types').MIN_DATA_YEAR` is `1970`, and the frontend
+bundle contains the literal. MD-13 would have hit this the moment the settings
+page imported `DEFAULT_BILLABLE_CATEGORIES`.
+
+Review findings, all seven addressed:
+
+- A link naming a year with no data keeps that year, and the filter offers it
+  marked `(no data)` — the select, the period label and the figures now agree
+  rather than showing three different years at once.
+- The plausible-year window comes from `@shared/types` instead of being written
+  out a third time.
+- Choosing a period pushes a history entry so Back undoes it; adopting the
+  default replaces, because the reader did not choose it.
+- A period with no hours reads "No hours logged in this period" rather than
+  "— of hours logged".
+- The README assumptions gained both dashboard decisions.
