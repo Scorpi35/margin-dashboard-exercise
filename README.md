@@ -14,8 +14,73 @@ checkout.
 
 ## Getting started
 
+Six commands from a clean clone to a dashboard with data in it. Run every one
+from the repo root.
+
+**1. Clone and enter the repo.**
+
+```bash
+git clone git@github.com:Scorpi35/margin-dashboard-exercise.git
+cd margin-dashboard-exercise
+```
+
+**2. Switch to Node 22.** `.nvmrc` pins it, and `npm install` refuses to run on
+anything else (`engine-strict`). `better-sqlite3` ships a native module built
+against this version.
+
+```bash
+nvm use
+```
+
+**3. Install.** One install at the root covers all three workspaces; it also
+builds `shared/`, which the backend and the frontend both import.
+
 ```bash
 npm install
+```
+
+**4. Seed the database.** The three spreadsheets in `sample-data/` are committed,
+so this needs no download and no credentials. It creates `data/` on demand.
+
+```bash
+npm run seed
+```
+
+```
+seed complete
+
+  timesheet_entries   562 rows
+  salaries            144 rows
+  projects             11 rows
+
+  0 warnings. Run `npm run selfcheck` to verify the cost model reconciles.
+```
+
+Seeding is an ordinary ingest, so running it twice leaves the same row counts.
+After experimenting with uploads of your own, `npm run seed -- --fresh` empties
+every table first.
+
+**5. Check the cost model reconciles.** With overhead forced to `{}`, computed
+cost must equal total salaries to the dirham, month by month.
+
+```bash
+npm run selfcheck
+```
+
+```
+selfcheck — overhead forced to {}
+
+2025: total salaries = 2400000.00 | total computed cost = 2400000.00 | PASS
+  01: salaries = 197000.00 | computed = 197000.00 | PASS
+  ...
+  12: salaries = 203000.00 | computed = 203000.00 | PASS
+
+selfcheck PASS
+```
+
+**6. Start the app.**
+
+```bash
 npm run dev
 ```
 
@@ -25,6 +90,17 @@ npm run dev
 
 The Vite dev server proxies `/api` to Express, so the frontend and the API are
 same-origin in development.
+
+### Verifying the checks the way CI would
+
+Optional, and independent of the database:
+
+```bash
+npm run typecheck
+npm run lint
+npm test
+npm run test:integration
+```
 
 ## Layout
 
@@ -55,20 +131,11 @@ Run from the repo root.
 | `npm run seed -- --fresh`  | Empties every table first, then ingests    |
 | `npm run selfcheck`        | Enforces the cost reconciliation invariant |
 
-`selfcheck` reads whatever is in the database, so **seed before you check**:
-
-```bash
-npm run seed
-npm run selfcheck
-```
-
-It honours your saved billable categories but forces overhead to `{}` — overhead
-is real cost that isn't salary, so it legitimately breaks `cost == salaries` and
-would make the check untestable. Expect:
-
-```
-2025: total salaries = 2400000.00 | total computed cost = 2400000.00 | PASS
-```
+`selfcheck` reads whatever is in the database, so **seed before you check** —
+steps 4 and 5 of [Getting started](#getting-started). It honours your saved
+billable categories but forces overhead to `{}` — overhead is real cost that
+isn't salary, so it legitimately breaks `cost == salaries` and would make the
+check untestable.
 
 Both scripts run through `tsx` without starting Express, and both exit non-zero
 on failure.
