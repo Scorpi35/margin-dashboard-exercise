@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { EM_DASH, formatAED, formatHours, formatPct, monthName } from './format';
+import { EM_DASH, formatAED, formatBarWidth, formatHours, formatPct, monthName } from './format';
 
 describe('formatAED', () => {
   it('renders an absent value as an em dash, never as zero', () => {
@@ -75,5 +75,33 @@ describe('monthName', () => {
     for (const value of [0, 13, -1, 1.5, null, undefined]) {
       expect(monthName(value)).toBe(EM_DASH);
     }
+  });
+});
+
+describe('formatBarWidth', () => {
+  it('turns a share into a CSS width', () => {
+    expect(formatBarWidth(0.83)).toBe('83.0%');
+    expect(formatBarWidth(1)).toBe('100.0%');
+    expect(formatBarWidth(0)).toBe('0.0%');
+  });
+
+  it('rounds away floating-point noise', () => {
+    // 0.827 * 100 is 82.69999999999999 — fine to render, awful to read.
+    expect(formatBarWidth(0.827)).toBe('82.7%');
+    expect(formatBarWidth(0.806)).toBe('80.6%');
+  });
+
+  it('clamps so a bar can never overflow its cell', () => {
+    expect(formatBarWidth(1.4)).toBe('100.0%');
+    expect(formatBarWidth(-0.2)).toBe('0.0%');
+  });
+
+  it('draws nothing for an absent or unusable share', () => {
+    // Unlike formatPct, this returns a width rather than an em dash — there is
+    // no such thing as a dash-wide bar.
+    expect(formatBarWidth(null)).toBe('0%');
+    expect(formatBarWidth(undefined)).toBe('0%');
+    expect(formatBarWidth(Number.NaN)).toBe('0%');
+    expect(formatBarWidth(Number.POSITIVE_INFINITY)).toBe('0%');
   });
 });

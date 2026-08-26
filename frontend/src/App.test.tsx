@@ -8,7 +8,7 @@ import App from '@/App';
 const ROUTES = [
   { path: '/', label: 'Dashboard' },
   { path: '/projects', label: 'Projects' },
-  { path: '/employees', label: 'Employees' },
+  { path: '/productivity', label: 'Productivity' },
   { path: '/categories', label: 'Categories' },
   { path: '/upload', label: 'Upload' },
   { path: '/settings', label: 'Settings' },

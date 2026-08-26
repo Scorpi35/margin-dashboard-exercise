@@ -44,6 +44,13 @@
   --color-warning: #8a5a00;
   --color-warning-soft: #fdf3e0;
 
+  /*
+   * Fills for inline data bars. Deliberately not `--color-warning`: amber there
+   * means something is missing, and a bar showing a healthy figure must not
+   * borrow that meaning.
+   */
+  --color-bar: #b45309;
+
   --font-sans: ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
 }
 

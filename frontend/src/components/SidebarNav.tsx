@@ -15,7 +15,7 @@ interface NavItem {
 const NAV_ITEMS: readonly NavItem[] = [
   { to: '/', label: 'Dashboard' },
   { to: '/projects', label: 'Projects' },
-  { to: '/employees', label: 'Employees' },
+  { to: '/productivity', label: 'Productivity' },
   { to: '/categories', label: 'Categories' },
   { to: '/upload', label: 'Upload' },
   { to: '/settings', label: 'Settings' },

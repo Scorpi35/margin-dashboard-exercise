@@ -38,12 +38,23 @@ import { yearMonthKey } from '../parse/dates';
  * never by summing project costs, which double-counts the pool.
  */
 
-/** Everything the engine needs. Assembled by a service; the engine reads no storage. */
-export interface EngineInput {
+/**
+ * What it takes to cost time: hours, what they were paid, and which categories
+ * count as billable.
+ *
+ * Prices are not part of it. Rates, the indirect pool, productivity and the
+ * category split are all decided before any project is priced, and saying so in
+ * the type means a caller can see which inputs an answer actually depends on.
+ */
+export interface CostInput {
   readonly timesheet: readonly TimesheetRow[];
   readonly salaries: readonly SalaryRow[];
-  readonly projects: readonly ProjectRow[];
   readonly settings: Settings;
+}
+
+/** Everything the engine needs. Assembled by a service; the engine reads no storage. */
+export interface EngineInput extends CostInput {
+  readonly projects: readonly ProjectRow[];
 }
 
 /** Which rows get aggregated. Rates are always derived from the whole month regardless. */
@@ -68,7 +79,7 @@ export const ALL_TIME: Period = { year: null, month: null };
  * several employees take a raise in July, and a project spanning both halves is
  * costed with each month's own rates.
  */
-export function computeEmployeeMonthCosts(input: EngineInput): EmployeeMonthCost[] {
+export function computeEmployeeMonthCosts(input: CostInput): EmployeeMonthCost[] {
   const { timesheet, salaries, settings } = input;
   const billable = new Set(settings.billableCategories);
   const departments = departmentsByEmployee(timesheet);
@@ -166,7 +177,7 @@ export function computeEmployeeMonthCosts(input: EngineInput): EmployeeMonthCost
  * across the month's billable hours is what loads a designer-hour with its share
  * of every meeting, leave day and support colleague.
  */
-export function computeMonthCostSummaries(input: EngineInput): MonthCostSummary[] {
+export function computeMonthCostSummaries(input: CostInput): MonthCostSummary[] {
   const byMonth = new Map<string, EmployeeMonthCost[]>();
 
   for (const cost of computeEmployeeMonthCosts(input)) {
@@ -355,7 +366,7 @@ export function computePeriodSummary(input: EngineInput, period: Period): Period
 /* -------------------------------------------------------------------------- */
 
 /** Billable share of each person's logged time over the period. */
-export function computeProductivity(input: EngineInput, period: Period): ProductivityRow[] {
+export function computeProductivity(input: CostInput, period: Period): ProductivityRow[] {
   const designations = designationsByEmployee(input.timesheet);
   const rows = new Map<string, ProductivityRow>();
 
@@ -385,7 +396,7 @@ export function computeProductivity(input: EngineInput, period: Period): Product
 }
 
 /** Where the hours went, by category, largest first. */
-export function computeCategoryBreakdown(input: EngineInput, period: Period): CategoryRow[] {
+export function computeCategoryBreakdown(input: CostInput, period: Period): CategoryRow[] {
   const billable = new Set(input.settings.billableCategories);
   const rows = input.timesheet.filter((row) => inPeriod(row, period));
   const totalHours = sum(rows, (row) => row.hours);
@@ -417,7 +428,7 @@ interface Rates {
 }
 
 /** Direct rates per employee-month and indirect rates per month, resolved once. */
-function rateIndex(input: EngineInput): Rates {
+function rateIndex(input: CostInput): Rates {
   const direct = new Map<string, number>();
   const indirect = new Map<string, number>();
 
