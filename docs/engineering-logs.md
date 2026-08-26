@@ -64,3 +64,42 @@ Decisions worth knowing about:
 - **`CategoryRow` is hours-only, no cost column.** A billable category carries
   fully-loaded cost while an internal one is valued at direct rate inside the
   indirect pool; one column holding both would mean two different things by row.
+
+## 2026-08-26 — MD-6: calculation engine
+
+`backend/src/calc/engine.ts` implements the cost model from `docs/cost-model.md`
+as six pure functions over plain data. `npm run selfcheck` now does real work: it
+parses `sample-data/` directly, forces overhead to zero and reconciles 2025 both
+annually and month by month, exiting non-zero on any drift.
+
+Decisions worth knowing about:
+
+- **`isSupportStaff` keys off `totalHours === 0`, not off the absence of
+  timesheet rows.** Someone whose rows happen to sum to zero hours would
+  otherwise have a salary inside `totalSalaries`, a direct rate of `0`, and no
+  entry in the indirect pool — their pay would vanish from one side of the
+  reconciliation and the invariant would break. Keying off hours covers the
+  never-logged and the logged-nothing cases identically.
+- **The test that can actually fail is the bucket sum, not `totalCost`.**
+  `totalCost` is defined as salaries plus overhead, so `cost == salaries` holds
+  by construction. What proves there is no double-counting is
+  `Σ(billableHours × directRate) + indirectPool == totalSalaries`, and that is
+  what `selfcheck` and `real-data.test.ts` assert per month.
+- **Summing project costs is not the trap on its own.** With every billable hour
+  belonging to some project, `Σ projectCost` legitimately equals payroll. The
+  documented error is adding non-billable cost _on top_ of project costs, which
+  charges the pool twice — `engine.test.ts` demonstrates that overshoot directly.
+- **`revenueShare` is a share of the period's `revenue`, not of the contract
+  price.** Otherwise the per-employee shares sum to the whole price while the
+  project row shows only the pro-rata slice — two numbers on one screen that
+  disagree. Over a full year the two are identical.
+- **Priced projects with no logged hours are absent from `ProjectFinancials`.**
+  Pro-rata attribution is `0/0` for them. `revenue` is guarded to `null` rather
+  than `NaN` if one ever appears.
+- **`engine.ts` imports only `@shared/types` and `parse/dates`** (for
+  `yearMonthKey`, a pure string helper). A test asserts that import list
+  verbatim, along with the absence of `fs`, `better-sqlite3`, `Date` and
+  `process.env`.
+- `MonthCostSummary` gained `supportStaffSalaries` and `nonBillableCost`, and
+  `ProjectFinancials` gained `hoursByDepartment` and `costByDepartment`. A pool
+  that looks wrong is only diagnosable by seeing which component moved.
