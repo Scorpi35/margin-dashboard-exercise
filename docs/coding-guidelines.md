@@ -190,7 +190,7 @@ names from the brief.
   against it, and never argue about style in review.
 - `npm run format` writes; `npm run format:check` verifies. Both run from the root
   across both workspaces and honour `.prettierignore`.
-- The post-edit hook (`.claude/hooks/post-edit-hook.sh`, mirrored in `.codex/`)
+- The post-edit hook (`.claude/hooks/post-edit-hook.sh`)
   runs Prettier, `eslint --fix`, and `tsc --noEmit` on every agent edit to a
   `.js/.jsx/.ts/.tsx` file, so agent-written code is formatted on the way in.
 - ESLint handles correctness, not style: `backend/eslint.config.mjs` (flat config)
