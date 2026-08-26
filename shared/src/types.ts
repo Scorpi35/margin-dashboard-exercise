@@ -292,7 +292,8 @@ export interface MissingSalaryEmployee {
 
 /** Company-wide totals for the filtered period, plus the gaps in the data behind them. */
 export interface PeriodSummary {
-  readonly year: number;
+  /** `null` when the figures span every year rather than one. */
+  readonly year: number | null;
   /** `null` for a whole-year view. */
   readonly month: MonthNumber | null;
   readonly totalSalaries: number;

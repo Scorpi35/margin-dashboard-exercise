@@ -19,6 +19,9 @@ const UPLOAD_TYPES: readonly UploadType[] = ['timesheet', 'salary', 'projects'];
  * The earliest and latest years a spreadsheet could plausibly be filed under.
  * Shared with `parse/dates.ts`, which applies the same window to Excel serials.
  */
+/** Longer than any ref code the source files use, and short enough to reject junk. */
+const MAX_REF_CODE_LENGTH = 64;
+
 const MIN_YEAR = MIN_DATA_YEAR;
 const MAX_YEAR = MAX_DATA_YEAR;
 
@@ -54,6 +57,25 @@ export function optionalMonth(value: unknown): MonthNumber | null {
   }
 
   return month;
+}
+
+/**
+ * A project ref code from a path segment.
+ *
+ * Ref codes come from the spreadsheet rather than a fixed list, so the only thing
+ * worth checking is that there is one and that it is a plausible length — an
+ * unknown code is the service's 404 to report, not a 400.
+ *
+ * @throws `HttpError(400)` when the segment is missing or empty.
+ */
+export function requireRefCode(value: unknown): string {
+  const refCode = typeof value === 'string' ? value.trim() : '';
+
+  if (refCode === '' || refCode.length > MAX_REF_CODE_LENGTH) {
+    throw new HttpError(400, 'A project ref code is required.');
+  }
+
+  return refCode;
 }
 
 /** @throws `HttpError(400)` when the `:type` segment is not one of the three files. */

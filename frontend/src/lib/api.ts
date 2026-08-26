@@ -3,6 +3,7 @@ import type {
   AppMeta,
   HealthStatus,
   PeriodSummary,
+  ProjectFinancials,
   UploadHistoryEntry,
   UploadResult,
   UploadType,
@@ -113,4 +114,22 @@ export function getDashboard(year: number, month: number | null): Promise<Period
 /** `GET /api/meta` — the years, categories and settings the filters are built from. */
 export function getMeta(): Promise<AppMeta> {
   return apiGet<AppMeta>('/meta');
+}
+
+/** `GET /api/projects` — every project with hours in the period, loss-making first. */
+export function getProjects(year: number, month: number | null): Promise<ProjectFinancials[]> {
+  const query = new URLSearchParams({ year: String(year) });
+  if (month !== null) query.set('month', String(month));
+
+  return apiGet<ProjectFinancials[]>(`/projects?${query.toString()}`);
+}
+
+/**
+ * `GET /api/projects/:refCode` — one project over its whole life.
+ *
+ * Takes no period: a price covers the whole engagement, so the margin only means
+ * anything against all of the work done on it.
+ */
+export function getProject(refCode: string): Promise<ProjectFinancials> {
+  return apiGet<ProjectFinancials>(`/projects/${encodeURIComponent(refCode)}`);
 }
