@@ -135,6 +135,29 @@ describe('GET /api/projects/:refCode', () => {
     expect(cost).toBeCloseTo(project.totalCost, 2);
   });
 
+  it('gives every contributor a profitability, none of them absent', async () => {
+    const project = await detail('Q2025001a');
+
+    for (const employee of project.employees) {
+      expect(employee.revenueShare).not.toBeNull();
+      expect(Number.isFinite(employee.profitability)).toBe(true);
+      expect(employee.profitability).toBeCloseTo(
+        ((employee.revenueShare ?? 0) - employee.cost) / (employee.revenueShare ?? 1),
+        10,
+      );
+    }
+  });
+
+  it('shares the price out across the contributors, to the dirham', async () => {
+    const project = await detail('Q2025001a');
+    const shares = project.employees.reduce(
+      (sum, employee) => sum + (employee.revenueShare ?? 0),
+      0,
+    );
+
+    expect(shares).toBeCloseTo(project.projectPrice ?? 0, 2);
+  });
+
   it('reports the whole engagement, not the period the list was filtered to', async () => {
     // A price covers the whole project, so its margin only means anything
     // against all of the work done on it.
@@ -211,9 +234,11 @@ describe('a ref code with hours but no price', () => {
     expect((await list())[0].refCode).toBe('Q2025999x');
   });
 
-  it('gives every contributor a null revenue share', async () => {
+  it('gives every contributor a null revenue share and a null profitability', async () => {
+    // Nothing to divide by, so the column is a gap rather than a break-even 0%.
     const project = await detail('Q2025999x');
 
     expect(project.employees.every((employee) => employee.revenueShare === null)).toBe(true);
+    expect(project.employees.every((employee) => employee.profitability === null)).toBe(true);
   });
 });

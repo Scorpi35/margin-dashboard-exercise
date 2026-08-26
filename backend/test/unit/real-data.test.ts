@@ -213,6 +213,48 @@ describe('the year as a whole', () => {
   });
 });
 
+describe('per-employee profitability on Q2025001a', () => {
+  const project = computeProjectFinancials(input, YEAR).find(
+    (candidate) => candidate.refCode === 'Q2025001a',
+  );
+
+  it('matches a hand-worked figure for one person', () => {
+    // Hand-checked against the spreadsheet, not against the engine:
+    //   share = 560,000 x 520.9 / 3,025.2       = 96,424.6992
+    //   profitability
+    //     = (96,424.6992 - 67,222.4559) / 96,424.6992
+    //     = 0.302850
+    const rohit = project?.employees.find((employee) => employee.employeeNo === '10202');
+
+    expect(rohit?.hours).toBeCloseTo(520.9, 1);
+    expect(rohit?.cost).toBeCloseTo(67_222.4559, 2);
+    expect(rohit?.revenueShare).toBeCloseTo(96_424.6992, 2);
+    expect(rohit?.profitability).toBeCloseTo(0.30285, 5);
+  });
+
+  it('gives every contributor a profitability derived from their own share', () => {
+    expect(project?.employees).toHaveLength(10);
+
+    for (const employee of project?.employees ?? []) {
+      expect(employee.revenueShare).not.toBeNull();
+      expect(employee.profitability).toBeCloseTo(
+        ((employee.revenueShare ?? 0) - employee.cost) / (employee.revenueShare ?? 1),
+        10,
+      );
+    }
+  });
+
+  it('shares the whole price out between the ten of them', () => {
+    const shares = (project?.employees ?? []).reduce(
+      (total, employee) => total + (employee.revenueShare ?? 0),
+      0,
+    );
+
+    expect(shares).toBeCloseTo(project?.projectPrice ?? 0, 2);
+    expect(shares).toBeCloseTo(560_000, 2);
+  });
+});
+
 describe('overhead on real data', () => {
   it('is additive and moves the indirect rate without touching salaries', () => {
     const withOverhead = computeMonthCostSummaries({
