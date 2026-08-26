@@ -3,19 +3,20 @@ import userEvent from '@testing-library/user-event';
 import { MemoryRouter, Route, Routes, useLocation } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import type { AppMeta, PeriodSummary } from '@shared/types';
+import type { AppMeta, DepartmentBreakdown, PeriodSummary } from '@shared/types';
 
 import DashboardPage from '@/pages/DashboardPage';
 
 vi.mock('@/lib/api', async () => {
   const actual = await vi.importActual<typeof import('@/lib/api')>('@/lib/api');
 
-  return { ...actual, getMeta: vi.fn(), getDashboard: vi.fn() };
+  return { ...actual, getMeta: vi.fn(), getDashboard: vi.fn(), getDepartments: vi.fn() };
 });
 
-const { getDashboard, getMeta } = await import('@/lib/api');
+const { getDashboard, getDepartments, getMeta } = await import('@/lib/api');
 const meta = vi.mocked(getMeta);
 const dashboard = vi.mocked(getDashboard);
+const departments = vi.mocked(getDepartments);
 
 function appMeta(overrides: Partial<AppMeta> = {}): AppMeta {
   return {
@@ -74,11 +75,33 @@ function renderAt(url: string) {
 
 const card = (label: string): HTMLElement => screen.getByText(label).parentElement!;
 
+function breakdown(overrides: Partial<DepartmentBreakdown> = {}): DepartmentBreakdown {
+  return {
+    rows: [
+      {
+        department: 'Design',
+        headcount: 3,
+        totalHours: 6_335.9,
+        billableHours: 5_121.2,
+        nonBillableHours: 1_214.7,
+        productivityPct: 0.8083,
+        cost: 633_000,
+        employees: [],
+      },
+    ],
+    totalHours: 19_815.2,
+    totalCost: 2_400_000,
+    ...overrides,
+  };
+}
+
 beforeEach(() => {
   meta.mockReset();
   dashboard.mockReset();
+  departments.mockReset();
   meta.mockResolvedValue(appMeta());
   dashboard.mockResolvedValue(summary());
+  departments.mockResolvedValue(breakdown());
 });
 
 describe('with no data at all', () => {
@@ -93,6 +116,7 @@ describe('with no data at all', () => {
     );
     // Never asks the server for a period that cannot exist.
     expect(dashboard).not.toHaveBeenCalled();
+    expect(departments).not.toHaveBeenCalled();
   });
 });
 
@@ -300,5 +324,53 @@ describe('when the API fails', () => {
     renderAt('/');
 
     expect((await screen.findByRole('alert')).textContent).toMatch(/could not load the dashboard/i);
+  });
+});
+
+describe('the department summary', () => {
+  it('links each department through to its drill-down, keeping the period', async () => {
+    renderAt('/?year=2025&month=3');
+
+    const link = await screen.findByRole('link', { name: 'Design' });
+    expect(link.getAttribute('href')).toBe('/departments/Design?year=2025&month=3');
+  });
+
+  it('encodes a name that is not URL-safe', async () => {
+    departments.mockResolvedValue(
+      breakdown({
+        rows: [
+          {
+            department: 'R&D / Special',
+            headcount: 1,
+            totalHours: 12,
+            billableHours: 12,
+            nonBillableHours: 0,
+            productivityPct: 1,
+            cost: 1_000,
+            employees: [],
+          },
+        ],
+      }),
+    );
+
+    renderAt('/?year=2025');
+
+    const link = await screen.findByRole('link', { name: 'R&D / Special' });
+    expect(link.getAttribute('href')).toBe('/departments/R%26D%20%2F%20Special?year=2025');
+  });
+
+  it('says plainly that overhead is not part of these figures', async () => {
+    renderAt('/');
+
+    expect(await screen.findByText(/overhead is company-wide and is not split/i)).toBeDefined();
+  });
+
+  it('shows headcount, hours and salaries for each department', async () => {
+    renderAt('/');
+
+    const row = (await screen.findByRole('link', { name: 'Design' })).closest('tr')!;
+    expect(within(row).getByText('3')).toBeDefined();
+    expect(within(row).getByText('6,335.9')).toBeDefined();
+    expect(within(row).getByText('AED 633,000')).toBeDefined();
   });
 });

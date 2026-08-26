@@ -2,6 +2,8 @@ import type {
   ApiResponse,
   AppMeta,
   CategoryBreakdown,
+  DepartmentBreakdown,
+  DepartmentRow,
   HealthStatus,
   PeriodSummary,
   ProductivityRow,
@@ -152,4 +154,25 @@ export function getProductivity(year: number, month: number | null): Promise<Pro
 /** `GET /api/categories` — hours per category, largest first, with the totals. */
 export function getCategories(year: number, month: number | null): Promise<CategoryBreakdown> {
   return apiGet<CategoryBreakdown>(`/categories?${periodQuery(year, month)}`);
+}
+
+/** `GET /api/departments` — hours and cost per department, costliest first. */
+export function getDepartments(year: number, month: number | null): Promise<DepartmentBreakdown> {
+  return apiGet<DepartmentBreakdown>(`/departments?${periodQuery(year, month)}`);
+}
+
+/**
+ * `GET /api/departments/:department` — one department and the people in it.
+ *
+ * The name is encoded: it comes from a spreadsheet column and can carry a slash
+ * or an ampersand.
+ */
+export function getDepartment(
+  department: string,
+  year: number,
+  month: number | null,
+): Promise<DepartmentRow> {
+  return apiGet<DepartmentRow>(
+    `/departments/${encodeURIComponent(department)}?${periodQuery(year, month)}`,
+  );
 }

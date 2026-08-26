@@ -4,7 +4,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import type { ProjectFinancials } from '@shared/types';
 
 import ContributorsTable from '@/components/ContributorsTable';
-import DepartmentBreakdownTable from '@/components/DepartmentBreakdownTable';
+import ProjectDepartmentsTable from '@/components/ProjectDepartmentsTable';
 import StatCard, { type StatTone } from '@/components/StatCard';
 import { ApiError, getProject } from '@/lib/api';
 import { formatAED, formatHours, formatPct } from '@/lib/format';
@@ -48,8 +48,10 @@ export default function ProjectDetailPage() {
     };
   }, [refCode]);
 
-  // Carried back so returning to the list restores whatever period was chosen.
-  const backTo = `/projects${searchParams.toString() === '' ? '' : `?${searchParams.toString()}`}`;
+  // Carried back so returning to the list restores whatever period was chosen,
+  // and onward so a department drill-down opens on the same one.
+  const search = searchParams.toString() === '' ? '' : `?${searchParams.toString()}`;
+  const backTo = `/projects${search}`;
 
   const backLink = (
     <Link to={backTo} className="text-accent text-sm hover:underline">
@@ -115,9 +117,10 @@ export default function ProjectDetailPage() {
       </div>
 
       <div className="mt-8 grid gap-4 lg:grid-cols-2">
-        <DepartmentBreakdownTable
+        <ProjectDepartmentsTable
           hoursByDepartment={project.hoursByDepartment}
           costByDepartment={project.costByDepartment}
+          search={search}
         />
         <ContributorsTable employees={project.employees} />
       </div>

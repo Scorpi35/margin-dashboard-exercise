@@ -109,6 +109,8 @@ describe('the project detail', () => {
     expect(departments).toEqual(['Backend', 'Design']);
     expect(within(table).getByText('1,825.0')).toBeDefined();
     expect(within(table).getByText('AED 288,776')).toBeDefined();
+    // Scoped, so it cannot be read as the department's whole cost.
+    expect(within(table).getByText('Cost on this project')).toBeDefined();
   });
 
   it('lists each contributor with their hours and cost', async () => {
