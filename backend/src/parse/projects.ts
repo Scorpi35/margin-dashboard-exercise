@@ -28,7 +28,7 @@ import {
  * against it, which is the visible outcome the reader can act on.
  */
 
-const SHEET_NAME = 'Projects';
+export const PROJECTS_SHEET = 'Projects';
 
 /**
  * `'project'` would be ambiguous here — it matches both `"Project (Billable)
@@ -51,7 +51,7 @@ type OptionalColumn = keyof typeof OPTIONAL_COLUMNS;
 const STATUSES: readonly ProjectStatus[] = ['in progress', 'completed'];
 
 export function parseProjects(buffer: Buffer, fileName: string): ParseResult<ProjectRow> {
-  const sheet = requireSheet(loadWorkbook(buffer), SHEET_NAME);
+  const sheet = requireSheet(loadWorkbook(buffer), PROJECTS_SHEET);
   const headerRowIndex = findHeaderRow(sheet, [
     ...Object.values(REQUIRED_COLUMNS),
     ...Object.values(OPTIONAL_COLUMNS),
@@ -67,7 +67,7 @@ export function parseProjects(buffer: Buffer, fileName: string): ParseResult<Pro
 
   for (const { rowNumber, values } of sheetRowsFromHeader(sheet, headerRowIndex)) {
     const warn = (message: string): void => {
-      warnings.push({ file: fileName, sheet: SHEET_NAME, row: rowNumber, message });
+      warnings.push({ file: fileName, sheet: PROJECTS_SHEET, row: rowNumber, message });
     };
     const optionalCell = (column: OptionalColumn): unknown => {
       const key = optional[column];

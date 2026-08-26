@@ -46,48 +46,68 @@ export default function DashboardPage() {
       error={period.error}
       data={period.data}
     >
-      {([summary, departments]) => (
-        <>
-          <DataGapsBanner
-            unpricedRefCodes={summary.unpricedRefCodes}
-            missingSalaryEmployees={summary.missingSalaryEmployees}
-          />
+      {([summary, departments]) =>
+        isEmpty(summary) ? (
+          <p className="text-ink-muted text-sm">
+            No hours were logged in this period, and no overhead was entered against it. Pick
+            another month, or upload the spreadsheets that cover it.
+          </p>
+        ) : (
+          <>
+            <DataGapsBanner
+              unpricedRefCodes={summary.unpricedRefCodes}
+              missingSalaryEmployees={summary.missingSalaryEmployees}
+            />
 
-          <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-            <StatCard label="Total hours" value={formatHours(summary.totalHours)} />
-            <StatCard
-              label="Billable hours"
-              value={formatHours(summary.billableHours)}
-              detail={
-                summary.productivityPct === null
-                  ? 'No hours logged in this period'
-                  : `${formatPct(summary.productivityPct)} of hours logged`
-              }
-            />
-            <StatCard label="Non-billable hours" value={formatHours(summary.nonBillableHours)} />
-            <StatCard
-              label="Cost"
-              value={formatAED(summary.totalCost)}
-              detail={`${formatAED(summary.totalSalaries)} salaries + ${formatAED(summary.totalOverhead)} overhead`}
-            />
-            <StatCard label="Revenue" value={formatAED(summary.totalRevenue)} />
-            <StatCard
-              label="Margin"
-              value={formatPct(summary.marginPct)}
-              detail={
-                summary.marginPct === null
-                  ? 'No revenue in this period'
-                  : `${formatAED(summary.totalProfit)} profit`
-              }
-              tone={marginTone(summary.marginPct)}
-            />
-          </div>
+            <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+              <StatCard label="Total hours" value={formatHours(summary.totalHours)} />
+              <StatCard
+                label="Billable hours"
+                value={formatHours(summary.billableHours)}
+                detail={
+                  summary.productivityPct === null
+                    ? 'No hours logged in this period'
+                    : `${formatPct(summary.productivityPct)} of hours logged`
+                }
+              />
+              <StatCard label="Non-billable hours" value={formatHours(summary.nonBillableHours)} />
+              <StatCard
+                label="Cost"
+                value={formatAED(summary.totalCost)}
+                detail={`${formatAED(summary.totalSalaries)} salaries + ${formatAED(summary.totalOverhead)} overhead`}
+              />
+              <StatCard label="Revenue" value={formatAED(summary.totalRevenue)} />
+              <StatCard
+                label="Margin"
+                value={formatPct(summary.marginPct)}
+                detail={
+                  summary.marginPct === null
+                    ? 'No revenue in this period'
+                    : `${formatAED(summary.totalProfit)} profit`
+                }
+                tone={marginTone(summary.marginPct)}
+              />
+            </div>
 
-          <DepartmentSummary breakdown={departments} search={search} />
-        </>
-      )}
+            <DepartmentSummary breakdown={departments} search={search} />
+          </>
+        )
+      }
     </PeriodPage>
   );
+}
+
+/**
+ * A period with nothing in it at all.
+ *
+ * Keyed on cost and revenue as well as hours, not on hours alone: overhead is
+ * costed for a month even when no rows have been ingested for it, so a month
+ * carrying 5,000 of overhead and no timesheet has a real cost figure and has to
+ * keep its cards. Six cards reading AED 0 say "the agency did nothing" with the
+ * same confidence they would report a real figure.
+ */
+function isEmpty(summary: PeriodSummary): boolean {
+  return summary.totalHours === 0 && summary.totalCost === 0 && summary.totalRevenue === 0;
 }
 
 /** Neutral when there is no margin to colour — an em dash is neither good nor bad. */

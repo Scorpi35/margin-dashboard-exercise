@@ -143,6 +143,35 @@ describe('the settings form', () => {
   });
 });
 
+describe('on a database with nothing in it', () => {
+  it('says where the categories and months will come from', async () => {
+    meta.mockResolvedValue(
+      appMeta({
+        years: [],
+        months: [],
+        categories: [],
+        settings: { billableCategories: [], monthlyOverhead: {} },
+      }),
+    );
+
+    renderPage();
+
+    expect(await screen.findByText(/no categories yet/i)).toBeDefined();
+    expect(screen.getByText(/no months yet/i)).toBeDefined();
+  });
+});
+
+describe('when the settings cannot be loaded', () => {
+  it('says so instead of showing an empty form', async () => {
+    meta.mockRejectedValue(new Error('network down'));
+
+    renderPage();
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/could not load the settings/i);
+    expect(screen.queryByRole('button', { name: /save settings/i })).toBeNull();
+  });
+});
+
 describe('saving', () => {
   it('leaves Save disabled until something actually changes', async () => {
     const user = userEvent.setup();

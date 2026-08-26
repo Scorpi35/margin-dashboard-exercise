@@ -831,3 +831,36 @@ the projects list; 100,000 against `2025-01` raises exactly that month's cost by
 exactly 100,000 while February stays at zero; clearing it returns total cost to
 total salaries at 2,400,000. A settings page that saved without moving the
 numbers downstream would pass a round-trip test and none of the issue.
+
+## 2026-08-27 — MD-18: honest empty and error states
+
+The polish pass over what MD-11 to MD-14 made _safe_. Most of the issue was
+already built — the gap banner and its tests, every upload rejection message,
+empty states on the three list pages, `NoDataYet` for a database with nothing in
+it, 404 branches on both detail routes, and `PeriodPage`'s page-level error — so
+the audit was a real part of the work and the diff is what the audit turned up.
+
+- **The dashboard printed six cards of `AED 0` for an empty period.** The last
+  page still doing what MD-14's review already fixed on the categories page. The
+  state is keyed on hours, cost **and** revenue all being zero, not on hours
+  alone: overhead is costed for a month with no rows in it, so a month carrying
+  5,000 of overhead and no timesheet has a real cost figure and keeps its cards.
+  Calling that period empty would hide money the agency spent.
+- **A wrong-slot upload named what was missing but not what to do.** Each parser
+  insists on its own sheet, so the file identifies itself; the three sheet names
+  are now exported and the ingest service builds its slot table from them rather
+  than keeping a fourth copy. Review caught the first version naming a slot even
+  when the workbook already carried the sheet for the slot it was dropped into —
+  a multi-tab workbook with a broken Timesheet sheet would have been sent to the
+  Salary slot, away from the missing column that was the actual fault.
+- **Coverage the audit needed to stay true.** A damaged workbook (right
+  signature, nothing readable behind it) was the one rejection path with nothing
+  pinning it. The banner's own acceptance criterion — delete a salary row, the
+  dashboard names that employee — was only ever asserted against a frontend mock,
+  and is now end to end, including that cost drops by exactly the salary that
+  went missing. Four pages gained the empty or failed states the others had.
+
+Worth remembering: the empty-state rule and the slot hint are both cases where
+the honest answer needed a second condition. "No hours" is not "nothing
+happened", and "the sheet I wanted is missing" is not "this file belongs
+elsewhere". Both first versions were confidently wrong in a narrow case.

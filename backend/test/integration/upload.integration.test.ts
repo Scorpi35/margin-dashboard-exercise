@@ -226,6 +226,59 @@ describe('a file that is not what it claims to be', () => {
     expect(getDb().prepare('SELECT COUNT(*) AS count FROM uploads').get()).toEqual({ count: 0 });
   });
 
+  it.each([
+    { type: 'timesheet', file: SALARIES, expected: /salary sheet — upload it in the Salary slot/i },
+    { type: 'timesheet', file: PRICES, expected: /price list — upload it in the Projects slot/i },
+    { type: 'salary', file: TIMESHEET, expected: /timesheet — upload it in the Timesheet slot/i },
+    { type: 'projects', file: SALARIES, expected: /salary sheet — upload it in the Salary slot/i },
+  ])(
+    'names the slot $file belongs in when it is sent to the $type slot',
+    async ({ type, file, expected }) => {
+      const response = await post(type, file, sample(file));
+
+      expect(response.status).toBe(400);
+      expect(response.body.message).toMatch(expected);
+    },
+  );
+
+  it('keeps quiet about slots when the file is already in the right one', async () => {
+    // A workbook can carry several of these as tabs. This one has a Timesheet
+    // sheet with columns missing and a Salary sheet beside it: the reader needs
+    // the missing columns, not a suggestion to try the Salary slot.
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.aoa_to_sheet([['Month', 'Employee No.', 'Employee Name', 'Category', 'Ref Code']]),
+      'Timesheet',
+    );
+    XLSX.utils.book_append_sheet(
+      workbook,
+      XLSX.utils.aoa_to_sheet([['Employee No.', 'Employee Name', 'January']]),
+      'Salary',
+    );
+    const bothTabs = XLSX.write(workbook, { type: 'buffer', bookType: 'xlsx' }) as Buffer;
+
+    const response = await post('timesheet', 'both-tabs.xlsx', bothTabs);
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toMatch(/missing required column/i);
+    expect(response.body.message).not.toMatch(/upload it in the/i);
+  });
+
+  it('keeps a damaged workbook to its own message rather than guessing a slot', async () => {
+    // The right signature and nothing readable behind it — the one rejection path
+    // where the file cannot say what it is.
+    const damaged = Buffer.concat([Buffer.from('PK\u0003\u0004', 'latin1'), Buffer.alloc(64, 7)]);
+
+    const response = await post('timesheet', 'broken.xlsx', damaged);
+
+    expect(response.status).toBe(400);
+    expect(response.body.message).toMatch(/appears to be damaged/i);
+    expect(response.body.message).not.toMatch(/upload it in the/i);
+    expect(response.body.message).toMatch(/nothing was saved/i);
+    expect(readTimesheet()).toEqual([]);
+  });
+
   it('leaves an earlier good upload alone when a later one is rejected', async () => {
     await post('timesheet', TIMESHEET, sample(TIMESHEET));
 

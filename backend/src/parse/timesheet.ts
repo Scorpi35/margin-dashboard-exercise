@@ -21,7 +21,7 @@ import {
  * file costs the whole year.
  */
 
-const SHEET_NAME = 'Timesheet';
+export const TIMESHEET_SHEET = 'Timesheet';
 
 /** Substrings, not exact names — see `findColumn`. Each is unique in this header. */
 const REQUIRED_COLUMNS = {
@@ -45,7 +45,7 @@ const OPTIONAL_COLUMNS = {
 type OptionalColumn = keyof typeof OPTIONAL_COLUMNS;
 
 export function parseTimesheet(buffer: Buffer, fileName: string): ParseResult<TimesheetRow> {
-  const sheet = requireSheet(loadWorkbook(buffer), SHEET_NAME);
+  const sheet = requireSheet(loadWorkbook(buffer), TIMESHEET_SHEET);
   const headerRowIndex = findHeaderRow(sheet, Object.values(REQUIRED_COLUMNS));
   const headerKeys = sheetHeaderKeys(sheet, headerRowIndex);
 
@@ -57,7 +57,7 @@ export function parseTimesheet(buffer: Buffer, fileName: string): ParseResult<Ti
 
   for (const { rowNumber, values } of sheetRowsFromHeader(sheet, headerRowIndex)) {
     const warn = (message: string): void => {
-      warnings.push({ file: fileName, sheet: SHEET_NAME, row: rowNumber, message });
+      warnings.push({ file: fileName, sheet: TIMESHEET_SHEET, row: rowNumber, message });
     };
     const optionalText = (column: OptionalColumn): string | null => {
       const key = optional[column];

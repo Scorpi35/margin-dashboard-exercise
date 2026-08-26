@@ -201,6 +201,16 @@ describe('the period filter', () => {
   });
 });
 
+describe('when the API fails', () => {
+  it('says so at page level instead of rendering an empty table', async () => {
+    projects.mockRejectedValue(new Error('network down'));
+
+    renderAt('/projects');
+
+    expect((await screen.findByRole('alert')).textContent).toMatch(/could not load the projects/i);
+  });
+});
+
 describe('with no data at all', () => {
   it('points at the upload page', async () => {
     meta.mockResolvedValue({
