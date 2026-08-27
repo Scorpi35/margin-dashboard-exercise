@@ -3,6 +3,11 @@ import { NavLink } from 'react-router-dom';
 /**
  * The persistent left sidebar.
  *
+ * Sticky from `sm` up: the nav is a fixed set of destinations, so scrolling a
+ * long projects table must not carry it off the screen. `h-dvh` gives it the
+ * viewport to stick within, and it scrolls internally if the list ever outgrows
+ * a short window.
+ *
  * Below `sm` it becomes a horizontal scrolling bar across the top, so every
  * destination stays reachable at 375px rather than hiding behind a menu button.
  */
@@ -25,7 +30,7 @@ export default function SidebarNav() {
   return (
     <nav
       aria-label="Main"
-      className="shrink-0 border-line bg-paper-raised border-b sm:h-dvh sm:w-56 sm:border-r sm:border-b-0"
+      className="shrink-0 border-line bg-paper-raised border-b sm:sticky sm:top-0 sm:h-dvh sm:w-56 sm:overflow-y-auto sm:border-r sm:border-b-0"
     >
       <div className="border-line hidden border-b px-5 py-4 sm:block">
         <p className="text-ink text-sm font-semibold">Margin Dashboard</p>
